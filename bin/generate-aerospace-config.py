@@ -40,6 +40,17 @@ def apply_modifications(config):
 
     config["gaps"]["outer"]["top"] = 36
 
+    # Workspaces are dynamic — no persistent slots
+    config["persistent-workspaces"] = []
+
+    # Add alt-space to open workspace picker
+    picker_cmd = (
+        "exec-and-forget osascript -e "
+        "'tell application \"iTerm\" to create window with profile \"Workspace Picker\" "
+        "command \"" + str(REPO_DIR / "bin" / "ws-pick") + "\"'"
+    )
+    config["mode"]["main"]["binding"]["alt-space"] = picker_cmd
+
     return config
 
 
