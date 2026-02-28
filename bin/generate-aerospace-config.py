@@ -40,8 +40,7 @@ def apply_modifications(config):
 
     config["gaps"]["outer"]["top"] = 36
 
-    # Workspaces are dynamic — no persistent slots
-    config["persistent-workspaces"] = []
+    config["persistent-workspaces"] = ["1"]
 
     # Add alt-space to open workspace picker
     picker_cmd = (

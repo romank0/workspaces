@@ -8,6 +8,8 @@ REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 VENV_DIR="$REPO_DIR/.venv"
 SKETCHYBAR_CONFIG_DIR="$HOME/.config/sketchybar"
 AEROSPACE_CONFIG="$HOME/.config/aerospace/aerospace.toml"
+STATE_DIR="$HOME/.local/state/workspaces"
+ITERM2_PROFILES_DIR="$HOME/Library/Application Support/iTerm2/DynamicProfiles"
 
 log() { printf '%s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
@@ -15,7 +17,7 @@ die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 check_deps() {
     local missing=()
-    for cmd in aerospace sketchybar jq yq python3; do
+    for cmd in aerospace sketchybar jq yq fzf python3; do
         command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
     done
     if [[ ${#missing[@]} -gt 0 ]]; then
@@ -73,6 +75,17 @@ install_sketchybar() {
     log "Symlinked $SKETCHYBAR_CONFIG_DIR → $REPO_DIR/config/sketchybar"
 }
 
+create_state_dir() {
+    mkdir -p "$STATE_DIR"
+    log "Ensured state directory: $STATE_DIR"
+}
+
+install_iterm2_profile() {
+    mkdir -p "$ITERM2_PROFILES_DIR"
+    cp "$REPO_DIR/config/iterm2/workspace-picker.json" "$ITERM2_PROFILES_DIR/workspace-picker.json"
+    log "Installed iTerm2 Workspace Picker profile."
+}
+
 reload_services() {
     if aerospace list-workspaces --focused >/dev/null 2>&1; then
         aerospace reload-config
@@ -97,8 +110,10 @@ main() {
     ensure_venv
     check_macos_settings
     backup_existing
+    create_state_dir
     generate_aerospace_config
     install_sketchybar
+    install_iterm2_profile
     reload_services
     log "=== Setup complete ==="
 }
