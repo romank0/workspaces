@@ -1,0 +1,25 @@
+# ABOUTME: Workspace template definitions.
+# ABOUTME: Each workspace lists apps to launch with optional arguments.
+
+# Apps can be specified as:
+#   - A bare string: just the app name
+#   - An object with 'app' and 'args': app name + launch arguments
+#
+# Example:
+#   MyWorkspace:
+#     apps:
+#       - Slack
+#       - app: Google Chrome
+#         args: ["--new-window", "https://example.com"]
+
+AI:
+  apps:
+    - app: kitty
+    - app: Google Chrome
+      args: ["--new-window", "https://claude.ai"]
+
+Backend:
+  apps:
+    - kitty
+    - app: Google Chrome
+      args: ["--new-window", "http://localhost:3000"]

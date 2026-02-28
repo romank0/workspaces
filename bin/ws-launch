@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# ABOUTME: Launches a workspace from a template definition.
+# ABOUTME: Opens apps with arguments and moves their windows to the target workspace.
+
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+TEMPLATES_FILE="$REPO_DIR/templates/workspaces.yaml"
+MAX_WAIT_SECONDS=10
+
+log() { printf '%s\n' "$*"; }
+warn() { printf 'WARNING: %s\n' "$*" >&2; }
+die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+
+usage() {
+    echo "Usage: ws-launch <workspace-name>"
+    echo ""
+    echo "Available workspaces:"
+    yq 'keys | .[]' "$TEMPLATES_FILE" 2>/dev/null | sed 's/^/  /'
+    exit 1
+}
+
+# Get current window IDs as a newline-separated list
+current_window_ids() {
+    aerospace list-windows --all --json --format '%{window-id}' \
+        | jq -r '.[].["window-id"]' 2>/dev/null || true
+}
+
+# Wait for a new window from an app and return its window ID
+wait_for_new_window() {
+    local before_ids="$1"
+    local app_name="$2"
+    local elapsed=0
+
+    while [[ $elapsed -lt $MAX_WAIT_SECONDS ]]; do
+        sleep 0.5
+        elapsed=$((elapsed + 1))
+
+        local new_id
+        new_id=$(aerospace list-windows --all --json --format '%{window-id}%{tab}%{app-name}' \
+            | jq -r --arg app "$app_name" \
+                '.[] | select(.["app-name"] == $app) | .["window-id"]' 2>/dev/null \
+            | while IFS= read -r wid; do
+                if ! echo "$before_ids" | grep -qx "$wid"; then
+                    echo "$wid"
+                    break
+                fi
+            done)
+
+        if [[ -n "$new_id" ]]; then
+            echo "$new_id"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+launch_app() {
+    local workspace="$1"
+    local app_name="$2"
+    shift 2
+    local args=("$@")
+
+    local before_ids
+    before_ids=$(current_window_ids)
+
+    log "Launching $app_name..."
+    if [[ ${#args[@]} -gt 0 ]]; then
+        open -n -a "$app_name" --args "${args[@]}" 2>/dev/null || {
+            warn "Failed to launch $app_name"
+            return 1
+        }
+    else
+        open -n -a "$app_name" 2>/dev/null || {
+            warn "Failed to launch $app_name"
+            return 1
+        }
+    fi
+
+    local new_window_id
+    if new_window_id=$(wait_for_new_window "$before_ids" "$app_name"); then
+        aerospace move-node-to-workspace "$workspace" --window-id "$new_window_id" 2>/dev/null || {
+            warn "Failed to move $app_name window to workspace $workspace"
+        }
+    else
+        warn "Timed out waiting for $app_name window"
+    fi
+}
+
+main() {
+    [[ $# -ge 1 ]] || usage
+
+    local workspace="$1"
+
+    command -v aerospace >/dev/null 2>&1 || die "aerospace not found"
+    command -v yq >/dev/null 2>&1 || die "yq not found"
+    aerospace list-workspaces --focused >/dev/null 2>&1 || die "Aerospace is not running"
+    [[ -f "$TEMPLATES_FILE" ]] || die "Templates file not found: $TEMPLATES_FILE"
+
+    # Check workspace exists in templates
+    local ws_exists
+    ws_exists=$(yq "has(\"$workspace\")" "$TEMPLATES_FILE")
+    [[ "$ws_exists" == "true" ]] || die "Workspace '$workspace' not found in templates"
+
+    # Switch to the target workspace
+    aerospace workspace "$workspace"
+
+    # Get number of apps in template
+    local app_count
+    app_count=$(yq ".\"$workspace\".apps | length" "$TEMPLATES_FILE")
+
+    for ((i = 0; i < app_count; i++)); do
+        local entry_type
+        entry_type=$(yq ".\"$workspace\".apps[$i] | type" "$TEMPLATES_FILE")
+
+        local app_name
+        local args=()
+
+        if [[ "$entry_type" == "!!str" ]]; then
+            app_name=$(yq ".\"$workspace\".apps[$i]" "$TEMPLATES_FILE")
+        else
+            app_name=$(yq ".\"$workspace\".apps[$i].app" "$TEMPLATES_FILE")
+            local args_count
+            args_count=$(yq ".\"$workspace\".apps[$i].args | length // 0" "$TEMPLATES_FILE")
+            for ((j = 0; j < args_count; j++)); do
+                args+=("$(yq ".\"$workspace\".apps[$i].args[$j]" "$TEMPLATES_FILE")")
+            done
+        fi
+
+        launch_app "$workspace" "$app_name" "${args[@]}"
+    done
+
+    log "Workspace '$workspace' launched."
+}
+
+main "$@"
