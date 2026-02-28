@@ -1,22 +1,30 @@
 #!/usr/bin/env bash
 # ABOUTME: Syncs Aerospace workspace state to SketchyBar items.
-# ABOUTME: Creates/updates/removes workspace items to reflect current Aerospace state.
+# ABOUTME: Shows only occupied or focused workspaces with display names from the name store.
 
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PLUGIN_DIR="$REPO_DIR/config/sketchybar/plugins"
 ITEM_PREFIX="ws"
+NAME_STORE="$HOME/.local/state/workspaces/names"
 
 COLOR_FOCUSED="0xffe0af68"
 COLOR_OCCUPIED="0xffcdd6f4"
-COLOR_EMPTY="0xff585b70"
 BG_FOCUSED="0x40e0af68"
 BG_DEFAULT="0x00000000"
 
 # Bail if aerospace is not running
 if ! aerospace list-workspaces --focused >/dev/null 2>&1; then
     exit 0
+fi
+
+# Load display names from store
+declare -A display_names
+if [[ -f "$NAME_STORE" ]]; then
+    while IFS='=' read -r slot name; do
+        [[ -n "$slot" && -n "$name" ]] && display_names["$slot"]="$name"
+    done < "$NAME_STORE"
 fi
 
 # Get all workspaces with focus/visibility info
@@ -27,58 +35,60 @@ workspaces_json=$(aerospace list-workspaces --all --json \
 windows_json=$(aerospace list-windows --all --json \
     --format '%{workspace}%{tab}%{window-id}')
 
-# Build a map of workspace → window count
 declare -A window_counts
 while IFS= read -r line; do
     ws=$(echo "$line" | jq -r '.workspace')
     window_counts["$ws"]=$(( ${window_counts["$ws"]:-0} + 1 ))
-done < <(echo "$windows_json" | jq -c '.[]')
+done < <(echo "$windows_json" | jq -c '.[]' 2>/dev/null)
 
 # Remove all existing workspace items
 sketchybar --remove '/^ws\./' 2>/dev/null || true
 
-# Create items for each workspace
+# Create items only for occupied or focused workspaces
 args=()
 while IFS= read -r line; do
-    ws_name=$(echo "$line" | jq -r '.workspace')
+    slot=$(echo "$line" | jq -r '.workspace')
     is_focused=$(echo "$line" | jq -r '.["workspace-is-focused"]')
-    count=${window_counts["$ws_name"]:-0}
-    item_name="${ITEM_PREFIX}.${ws_name}"
+    count=${window_counts["$slot"]:-0}
+
+    # Skip empty unfocused workspaces
+    if [[ "$count" -eq 0 && "$is_focused" != "true" ]]; then
+        continue
+    fi
+
+    item_name="${ITEM_PREFIX}.${slot}"
+    display_name="${display_names["$slot"]:-}"
 
     if [[ "$is_focused" == "true" ]]; then
         icon_color="$COLOR_FOCUSED"
         bg_color="$BG_FOCUSED"
         bg_drawing="on"
-    elif [[ "$count" -gt 0 ]]; then
-        icon_color="$COLOR_OCCUPIED"
-        bg_color="$BG_DEFAULT"
-        bg_drawing="off"
     else
-        icon_color="$COLOR_EMPTY"
+        icon_color="$COLOR_OCCUPIED"
         bg_color="$BG_DEFAULT"
         bg_drawing="off"
     fi
 
     label=""
-    if [[ "$count" -gt 0 ]]; then
-        label="[$count]"
+    if [[ -n "$display_name" ]]; then
+        label="$display_name"
     fi
 
     args+=(
         --add item "$item_name" left
         --set "$item_name"
-            icon="$ws_name"
+            icon="$slot"
             icon.color="$icon_color"
             label="$label"
             label.color="$icon_color"
-            label.font="SF Pro:Regular:11.0"
+            label.font="SF Pro:Semibold:12.0"
             background.drawing="$bg_drawing"
             background.color="$bg_color"
             background.corner_radius=4
             background.height=24
             padding_left=2
             padding_right=2
-            click_script="aerospace workspace $ws_name"
+            click_script="aerospace workspace $slot"
             script="$PLUGIN_DIR/workspaces.sh"
         --subscribe "$item_name" aerospace_workspace_change
     )
