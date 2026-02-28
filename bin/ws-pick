@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+# ABOUTME: Interactive workspace picker using fzf in an iTerm2 popup.
+# ABOUTME: Supports switching to active workspaces and creating new ones from templates.
+
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+TEMPLATES_FILE="$REPO_DIR/templates/workspaces.yaml"
+NAME_STORE="$HOME/.local/state/workspaces/names"
+
+die() { printf 'ERROR: %s\n' "$*" >&2; sleep 2; exit 1; }
+
+# Load display names
+declare -A display_names
+load_display_names() {
+    if [[ -f "$NAME_STORE" ]]; then
+        while IFS='=' read -r slot name; do
+            [[ -n "$slot" && -n "$name" ]] && display_names["$slot"]="$name"
+        done < "$NAME_STORE"
+    fi
+}
+
+# Build list of active workspaces (non-empty ones)
+active_workspaces() {
+    local windows_json
+    windows_json=$(aerospace list-windows --all --json --format '%{workspace}' 2>/dev/null) || return
+
+    # Get unique workspaces that have windows
+    echo "$windows_json" | jq -r '.[].workspace' | sort -u | while IFS= read -r slot; do
+        local name="${display_names["$slot"]:-}"
+        if [[ -n "$name" ]]; then
+            echo "switch:${slot}:${name}"
+        else
+            echo "switch:${slot}:${slot}"
+        fi
+    done
+}
+
+# Build list of available templates
+available_templates() {
+    yq 'keys | .[]' "$TEMPLATES_FILE" 2>/dev/null | while IFS= read -r tmpl; do
+        echo "create:${tmpl}"
+    done
+}
+
+# Find next available slot from a preferred set
+next_available_slot() {
+    local used_slots
+    used_slots=$(aerospace list-workspaces --all --empty no 2>/dev/null || true)
+
+    # Try 1-9, then A-Z
+    for slot in {1..9} {A..Z}; do
+        if ! echo "$used_slots" | grep -qx "$slot"; then
+            echo "$slot"
+            return
+        fi
+    done
+    die "No available slots"
+}
+
+prompt_slot() {
+    local default_slot="$1"
+    echo ""
+    printf "Slot [%s]: " "$default_slot"
+    read -r slot
+    echo "${slot:-$default_slot}"
+}
+
+prompt_name() {
+    local default_name="$1"
+    printf "Name [%s]: " "$default_name"
+    read -r name
+    echo "${name:-$default_name}"
+}
+
+do_switch() {
+    local slot="$1"
+    aerospace workspace "$slot"
+}
+
+do_create() {
+    local template="$1"
+
+    local default_slot
+    default_slot=$(next_available_slot)
+
+    local slot
+    slot=$(prompt_slot "$default_slot")
+
+    local name
+    name=$(prompt_name "$template")
+
+    echo ""
+    echo "Creating workspace '$name' in slot $slot from template '$template'..."
+    "$REPO_DIR/bin/ws-launch" "$template" "$slot" "$name"
+}
+
+main() {
+    aerospace list-workspaces --focused >/dev/null 2>&1 || die "Aerospace is not running"
+    command -v fzf >/dev/null 2>&1 || die "fzf not found"
+
+    load_display_names
+
+    # Build menu entries
+    local entries=""
+
+    local active
+    active=$(active_workspaces)
+    if [[ -n "$active" ]]; then
+        while IFS= read -r line; do
+            local slot name
+            slot=$(echo "$line" | cut -d: -f2)
+            name=$(echo "$line" | cut -d: -f3)
+            entries+="  ${slot}: ${name}"$'\n'
+        done <<< "$active"
+    fi
+
+    local templates
+    templates=$(available_templates)
+    if [[ -n "$templates" ]]; then
+        entries+="---"$'\n'
+        while IFS= read -r line; do
+            local tmpl
+            tmpl=$(echo "$line" | cut -d: -f2)
+            entries+="+ New from ${tmpl}"$'\n'
+        done <<< "$templates"
+    fi
+
+    if [[ -z "$entries" ]]; then
+        die "No workspaces or templates found"
+    fi
+
+    local selection
+    selection=$(echo -n "$entries" | fzf \
+        --reverse \
+        --no-sort \
+        --no-info \
+        --header="Switch or create workspace" \
+        --header-first) || exit 0
+
+    # Parse selection
+    if [[ "$selection" == "---" ]]; then
+        exit 0
+    elif [[ "$selection" =~ ^\+\ New\ from\ (.+)$ ]]; then
+        local template="${BASH_REMATCH[1]}"
+        do_create "$template"
+    elif [[ "$selection" =~ ^\ \ ([^:]+):\ (.+)$ ]]; then
+        local slot="${BASH_REMATCH[1]}"
+        do_switch "$slot"
+    fi
+}
+
+main "$@"
