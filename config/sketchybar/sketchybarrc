@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# ABOUTME: Main SketchyBar configuration for workspace-centric environment.
+# ABOUTME: Registers Aerospace events and initializes dynamic workspace display.
+
+PLUGIN_DIR="$CONFIG_DIR/plugins"
+REPO_DIR="$(cd "$CONFIG_DIR/../.." && pwd)"
+
+# --- Bar appearance ---
+sketchybar --bar \
+    position=top \
+    height=32 \
+    color=0xff1e1e2e \
+    border_color=0xff313244 \
+    border_width=1 \
+    shadow=off \
+    padding_left=8 \
+    padding_right=8
+
+# --- Default item styling ---
+sketchybar --default \
+    icon.font="SF Pro:Bold:14.0" \
+    icon.color=0xffcdd6f4 \
+    label.font="SF Pro:Semibold:13.0" \
+    label.color=0xffcdd6f4 \
+    padding_left=4 \
+    padding_right=4
+
+# --- Aerospace workspace change event ---
+sketchybar --add event aerospace_workspace_change
+
+# --- Initial workspace sync ---
+"$REPO_DIR/bin/ws-sync"
