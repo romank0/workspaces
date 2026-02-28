@@ -10,7 +10,6 @@ NAME_STORE="$HOME/.local/state/workspaces/names"
 
 die() { printf 'ERROR: %s\n' "$*" >&2; sleep 2; exit 1; }
 
-# Load display names
 declare -A display_names
 load_display_names() {
     if [[ -f "$NAME_STORE" ]]; then
@@ -20,12 +19,14 @@ load_display_names() {
     fi
 }
 
-# Build list of active workspaces (non-empty ones)
+get_focused_slot() {
+    aerospace list-workspaces --focused 2>/dev/null || true
+}
+
 active_workspaces() {
     local windows_json
     windows_json=$(aerospace list-windows --all --json --format '%{workspace}' 2>/dev/null) || return
 
-    # Get unique workspaces that have windows
     echo "$windows_json" | jq -r '.[].workspace' | sort -u | while IFS= read -r slot; do
         local name="${display_names["$slot"]:-}"
         if [[ -n "$name" ]]; then
@@ -36,19 +37,17 @@ active_workspaces() {
     done
 }
 
-# Build list of available templates
 available_templates() {
     yq 'keys | .[]' "$TEMPLATES_FILE" 2>/dev/null | while IFS= read -r tmpl; do
         echo "create:${tmpl}"
     done
 }
 
-# Find next available slot from a preferred set
 next_available_slot() {
     local used_slots
-    used_slots=$(aerospace list-workspaces --all --empty no 2>/dev/null || true)
+    used_slots=$(aerospace list-windows --all --json --format '%{workspace}' 2>/dev/null \
+        | jq -r '.[].workspace' | sort -u)
 
-    # Try 1-9, then A-Z
     for slot in {1..9} {A..Z}; do
         if ! echo "$used_slots" | grep -qx "$slot"; then
             echo "$slot"
@@ -58,24 +57,10 @@ next_available_slot() {
     die "No available slots"
 }
 
-prompt_slot() {
-    local default_slot="$1"
-    echo ""
-    printf "Slot [%s]: " "$default_slot"
-    read -r slot
-    echo "${slot:-$default_slot}"
-}
-
-prompt_name() {
-    local default_name="$1"
-    printf "Name [%s]: " "$default_name"
-    read -r name
-    echo "${name:-$default_name}"
-}
-
 do_switch() {
     local slot="$1"
-    aerospace workspace "$slot"
+    # Switch in background so the picker window closing doesn't bounce focus back
+    nohup aerospace workspace "$slot" &>/dev/null &
 }
 
 do_create() {
@@ -84,14 +69,18 @@ do_create() {
     local default_slot
     default_slot=$(next_available_slot)
 
-    local slot
-    slot=$(prompt_slot "$default_slot")
-
-    local name
-    name=$(prompt_name "$template")
-
     echo ""
-    echo "Creating workspace '$name' in slot $slot from template '$template'..."
+    printf "Slot [%s]: " "$default_slot" > /dev/tty
+    read -r slot < /dev/tty
+    slot="${slot:-$default_slot}"
+    slot=$(echo "$slot" | tr '[:lower:]' '[:upper:]')
+
+    printf "Name [%s]: " "$template" > /dev/tty
+    read -r name < /dev/tty
+    name="${name:-$template}"
+
+    echo "" > /dev/tty
+    echo "Creating workspace '$name' in slot $slot from template '$template'..." > /dev/tty
     "$REPO_DIR/bin/ws-launch" "$template" "$slot" "$name"
 }
 
@@ -100,6 +89,9 @@ main() {
     command -v fzf >/dev/null 2>&1 || die "fzf not found"
 
     load_display_names
+
+    local focused_slot
+    focused_slot=$(get_focused_slot)
 
     # Build menu entries
     local entries=""
@@ -111,18 +103,22 @@ main() {
             local slot name
             slot=$(echo "$line" | cut -d: -f2)
             name=$(echo "$line" | cut -d: -f3)
-            entries+="  ${slot}: ${name}"$'\n'
+            local marker=" "
+            if [[ "$slot" == "$focused_slot" ]]; then
+                marker="*"
+            fi
+            entries+="${marker} ${slot}  ${name}"$'\n'
         done <<< "$active"
     fi
 
     local templates
     templates=$(available_templates)
     if [[ -n "$templates" ]]; then
-        entries+="---"$'\n'
+        entries+="─────────────────"$'\n'
         while IFS= read -r line; do
             local tmpl
             tmpl=$(echo "$line" | cut -d: -f2)
-            entries+="+ New from ${tmpl}"$'\n'
+            entries+="  +  New from ${tmpl}"$'\n'
         done <<< "$templates"
     fi
 
@@ -135,16 +131,16 @@ main() {
         --reverse \
         --no-sort \
         --no-info \
+        --select-1 \
         --header="Switch or create workspace" \
         --header-first) || exit 0
 
-    # Parse selection
-    if [[ "$selection" == "---" ]]; then
+    if [[ "$selection" =~ ^─ ]]; then
         exit 0
-    elif [[ "$selection" =~ ^\+\ New\ from\ (.+)$ ]]; then
+    elif [[ "$selection" =~ ^\ \ \+\ \ New\ from\ (.+)$ ]]; then
         local template="${BASH_REMATCH[1]}"
         do_create "$template"
-    elif [[ "$selection" =~ ^\ \ ([^:]+):\ (.+)$ ]]; then
+    elif [[ "$selection" =~ ^.\ ([^ ]+)\ \ (.+)$ ]]; then
         local slot="${BASH_REMATCH[1]}"
         do_switch "$slot"
     fi

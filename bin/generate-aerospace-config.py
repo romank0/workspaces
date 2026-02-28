@@ -29,13 +29,11 @@ def apply_modifications(config):
     ws_sync = str(REPO_DIR / "bin" / "ws-sync")
     config["after-startup-command"] = [f"exec-and-forget {ws_sync}"]
 
-    sketchybar_trigger = (
+    config["exec-on-workspace-change"] = [
+        '/bin/bash', '-c',
         'sketchybar --trigger aerospace_workspace_change'
         ' FOCUSED=$AEROSPACE_FOCUSED_WORKSPACE'
         ' PREV=$AEROSPACE_PREV_WORKSPACE'
-    )
-    config["exec-on-workspace-change"] = [
-        f'exec-and-forget bash -c "{sketchybar_trigger}"'
     ]
 
     config["gaps"]["outer"]["top"] = 36

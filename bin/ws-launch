@@ -108,7 +108,8 @@ main() {
     [[ $# -ge 2 ]] || usage
 
     local template="$1"
-    local slot="$2"
+    local slot
+    slot=$(echo "$2" | tr '[:lower:]' '[:upper:]')
     local display_name="${3:-$template}"
 
     command -v aerospace >/dev/null 2>&1 || die "aerospace not found"

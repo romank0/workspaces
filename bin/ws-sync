@@ -5,7 +5,6 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-PLUGIN_DIR="$REPO_DIR/config/sketchybar/plugins"
 ITEM_PREFIX="ws"
 NAME_STORE="$HOME/.local/state/workspaces/names"
 
@@ -89,8 +88,6 @@ while IFS= read -r line; do
             padding_left=2
             padding_right=2
             click_script="aerospace workspace $slot"
-            script="$PLUGIN_DIR/workspaces.sh"
-        --subscribe "$item_name" aerospace_workspace_change
     )
 done < <(echo "$workspaces_json" | jq -c '.[]')
 

@@ -70,6 +70,8 @@ generate_aerospace_config() {
 install_sketchybar() {
     if [[ -L "$SKETCHYBAR_CONFIG_DIR" ]]; then
         rm "$SKETCHYBAR_CONFIG_DIR"
+    elif [[ -d "$SKETCHYBAR_CONFIG_DIR" ]]; then
+        rm -rf "$SKETCHYBAR_CONFIG_DIR"
     fi
     ln -sf "$REPO_DIR/config/sketchybar" "$SKETCHYBAR_CONFIG_DIR"
     log "Symlinked $SKETCHYBAR_CONFIG_DIR → $REPO_DIR/config/sketchybar"

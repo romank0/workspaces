@@ -1,32 +1,57 @@
 #!/usr/bin/env bash
 # ABOUTME: Main SketchyBar configuration for workspace-centric environment.
-# ABOUTME: Registers Aerospace events and initializes dynamic workspace display.
+# ABOUTME: Registers Aerospace events, workspace display, and system indicators.
 
 PLUGIN_DIR="$CONFIG_DIR/plugins"
-REPO_DIR="$(cd "$CONFIG_DIR/../.." && pwd)"
+# Resolve symlink to find actual repo location
+REAL_CONFIG_DIR="$(cd -P "$CONFIG_DIR" && pwd)"
+REPO_DIR="$(cd "$REAL_CONFIG_DIR/../.." && pwd)"
+
+# --- Remove all default items ---
+sketchybar --remove '/.*/' 2>/dev/null || true
 
 # --- Bar appearance ---
 sketchybar --bar \
     position=top \
-    height=32 \
-    color=0xff1e1e2e \
-    border_color=0xff313244 \
-    border_width=1 \
-    shadow=off \
-    padding_left=8 \
-    padding_right=8
+    height=40 \
+    blur_radius=30 \
+    color=0x40000000
 
 # --- Default item styling ---
-sketchybar --default \
-    icon.font="SF Pro:Bold:14.0" \
-    icon.color=0xffcdd6f4 \
-    label.font="SF Pro:Semibold:13.0" \
-    label.color=0xffcdd6f4 \
-    padding_left=4 \
-    padding_right=4
+default=(
+    padding_left=5
+    padding_right=5
+    icon.font="Hack Nerd Font:Bold:17.0"
+    label.font="Hack Nerd Font:Bold:14.0"
+    icon.color=0xffffffff
+    label.color=0xffffffff
+    icon.padding_left=4
+    icon.padding_right=4
+    label.padding_left=4
+    label.padding_right=4
+)
+sketchybar --default "${default[@]}"
 
 # --- Aerospace workspace change event ---
 sketchybar --add event aerospace_workspace_change
 
+# --- Single trigger item that refreshes workspaces on change ---
+sketchybar --add item ws_trigger left \
+           --set ws_trigger drawing=off script="$PLUGIN_DIR/workspaces.sh" \
+           --subscribe ws_trigger aerospace_workspace_change
+
+# --- Right side: clock, volume, battery ---
+sketchybar --add item clock right \
+           --set clock update_freq=10 icon= script="$PLUGIN_DIR/clock.sh" \
+           --add item volume right \
+           --set volume script="$PLUGIN_DIR/volume.sh" \
+           --subscribe volume volume_change \
+           --add item battery right \
+           --set battery update_freq=120 script="$PLUGIN_DIR/battery.sh" \
+           --subscribe battery system_woke power_source_change
+
 # --- Initial workspace sync ---
 "$REPO_DIR/bin/ws-sync"
+
+# --- Force all scripts to run ---
+sketchybar --update

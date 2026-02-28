@@ -12,7 +12,8 @@
       "Silence Bell": true,
       "Custom Window Title": "Workspace Picker",
       "Use Custom Window Title": true,
-      "Prompt Before Closing 2": 0
+      "Prompt Before Closing 2": 0,
+      "Session Close Mode": 0
     }
   ]
 }
