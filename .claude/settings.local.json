@@ -13,7 +13,9 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:zackreed.me)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:www.josean.com)"
+      "WebFetch(domain:www.josean.com)",
+      "Bash(python3:*)",
+      "Bash(.venv/bin/python3:*)"
     ]
   }
 }

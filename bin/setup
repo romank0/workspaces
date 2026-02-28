@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# ABOUTME: Installs workspace environment: generates Aerospace config, symlinks SketchyBar.
+# ABOUTME: Bootstraps Python venv for TOML manipulation, backs up existing configs.
+
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+VENV_DIR="$REPO_DIR/.venv"
+SKETCHYBAR_CONFIG_DIR="$HOME/.config/sketchybar"
+AEROSPACE_CONFIG="$HOME/.config/aerospace/aerospace.toml"
+
+log() { printf '%s\n' "$*"; }
+warn() { printf 'WARNING: %s\n' "$*" >&2; }
+die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+
+check_deps() {
+    local missing=()
+    for cmd in aerospace sketchybar jq yq python3; do
+        command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
+    done
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        die "Missing dependencies: ${missing[*]}"
+    fi
+    log "All dependencies found."
+}
+
+ensure_venv() {
+    if [[ ! -d "$VENV_DIR" ]]; then
+        log "Creating Python virtual environment..."
+        python3 -m venv "$VENV_DIR"
+    fi
+    if ! "$VENV_DIR/bin/python3" -c "import tomli_w" 2>/dev/null; then
+        log "Installing Python dependencies..."
+        "$VENV_DIR/bin/pip" install --quiet tomli_w
+    fi
+}
+
+check_macos_settings() {
+    local mru_spaces
+    mru_spaces=$(defaults read com.apple.dock mru-spaces 2>/dev/null || echo "unknown")
+    if [[ "$mru_spaces" == "1" ]]; then
+        warn "'Automatically rearrange Spaces based on most recent use' is ON."
+        warn "This interferes with Aerospace. Disable in System Settings > Desktop & Dock."
+    fi
+}
+
+backup_existing() {
+    local timestamp
+    timestamp=$(date +%Y%m%d_%H%M%S)
+
+    if [[ -e "$AEROSPACE_CONFIG" && ! -L "$AEROSPACE_CONFIG" ]]; then
+        local backup="$AEROSPACE_CONFIG.backup.$timestamp"
+        cp "$AEROSPACE_CONFIG" "$backup"
+        log "Backed up $AEROSPACE_CONFIG → $backup"
+    fi
+
+    if [[ -e "$SKETCHYBAR_CONFIG_DIR" && ! -L "$SKETCHYBAR_CONFIG_DIR" ]]; then
+        local backup="$SKETCHYBAR_CONFIG_DIR.backup.$timestamp"
+        cp -R "$SKETCHYBAR_CONFIG_DIR" "$backup"
+        log "Backed up $SKETCHYBAR_CONFIG_DIR → $backup"
+    fi
+}
+
+generate_aerospace_config() {
+    "$VENV_DIR/bin/python3" "$REPO_DIR/bin/generate-aerospace-config.py"
+}
+
+install_sketchybar() {
+    if [[ -L "$SKETCHYBAR_CONFIG_DIR" ]]; then
+        rm "$SKETCHYBAR_CONFIG_DIR"
+    fi
+    ln -sf "$REPO_DIR/config/sketchybar" "$SKETCHYBAR_CONFIG_DIR"
+    log "Symlinked $SKETCHYBAR_CONFIG_DIR → $REPO_DIR/config/sketchybar"
+}
+
+reload_services() {
+    if aerospace list-workspaces --focused >/dev/null 2>&1; then
+        aerospace reload-config
+        log "Reloaded Aerospace config."
+    else
+        warn "Aerospace is not running. Start it manually."
+    fi
+
+    if pgrep -q sketchybar; then
+        sketchybar --reload
+        log "Reloaded SketchyBar."
+    else
+        warn "SketchyBar is not running. Start it manually."
+    fi
+}
+
+main() {
+    log "=== Workspace Environment Setup ==="
+    check_deps
+    ensure_venv
+    check_macos_settings
+    backup_existing
+    generate_aerospace_config
+    install_sketchybar
+    reload_services
+    log "=== Setup complete ==="
+}
+
+main "$@"
