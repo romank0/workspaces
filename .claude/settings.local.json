@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash:*)",
+      "Bash(jq:*)",
+      "Bash(yq:*)",
+      "Bash(aerospace:*)",
+      "Bash(sketchybar:*)",
+      "WebSearch",
+      "WebFetch(domain:felixkratz.github.io)",
+      "WebFetch(domain:thedocs.io)",
+      "WebFetch(domain:nikitabobko.github.io)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:zackreed.me)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:www.josean.com)"
+    ]
+  }
+}
