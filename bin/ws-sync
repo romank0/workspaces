@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# ABOUTME: Syncs Aerospace workspace state to SketchyBar items.
+# ABOUTME: Creates/updates/removes workspace items to reflect current Aerospace state.
+
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+PLUGIN_DIR="$REPO_DIR/config/sketchybar/plugins"
+ITEM_PREFIX="ws"
+
+COLOR_FOCUSED="0xffe0af68"
+COLOR_OCCUPIED="0xffcdd6f4"
+COLOR_EMPTY="0xff585b70"
+BG_FOCUSED="0x40e0af68"
+BG_DEFAULT="0x00000000"
+
+# Bail if aerospace is not running
+if ! aerospace list-workspaces --focused >/dev/null 2>&1; then
+    exit 0
+fi
+
+# Get all workspaces with focus/visibility info
+workspaces_json=$(aerospace list-workspaces --all --json \
+    --format '%{workspace}%{tab}%{workspace-is-focused}%{tab}%{workspace-is-visible}')
+
+# Get window counts per workspace
+windows_json=$(aerospace list-windows --all --json \
+    --format '%{workspace}%{tab}%{window-id}')
+
+# Build a map of workspace → window count
+declare -A window_counts
+while IFS= read -r line; do
+    ws=$(echo "$line" | jq -r '.workspace')
+    window_counts["$ws"]=$(( ${window_counts["$ws"]:-0} + 1 ))
+done < <(echo "$windows_json" | jq -c '.[]')
+
+# Remove all existing workspace items
+sketchybar --remove '/^ws\./' 2>/dev/null || true
+
+# Create items for each workspace
+args=()
+while IFS= read -r line; do
+    ws_name=$(echo "$line" | jq -r '.workspace')
+    is_focused=$(echo "$line" | jq -r '.["workspace-is-focused"]')
+    count=${window_counts["$ws_name"]:-0}
+    item_name="${ITEM_PREFIX}.${ws_name}"
+
+    if [[ "$is_focused" == "true" ]]; then
+        icon_color="$COLOR_FOCUSED"
+        bg_color="$BG_FOCUSED"
+        bg_drawing="on"
+    elif [[ "$count" -gt 0 ]]; then
+        icon_color="$COLOR_OCCUPIED"
+        bg_color="$BG_DEFAULT"
+        bg_drawing="off"
+    else
+        icon_color="$COLOR_EMPTY"
+        bg_color="$BG_DEFAULT"
+        bg_drawing="off"
+    fi
+
+    label=""
+    if [[ "$count" -gt 0 ]]; then
+        label="[$count]"
+    fi
+
+    args+=(
+        --add item "$item_name" left
+        --set "$item_name"
+            icon="$ws_name"
+            icon.color="$icon_color"
+            label="$label"
+            label.color="$icon_color"
+            label.font="SF Pro:Regular:11.0"
+            background.drawing="$bg_drawing"
+            background.color="$bg_color"
+            background.corner_radius=4
+            background.height=24
+            padding_left=2
+            padding_right=2
+            click_script="aerospace workspace $ws_name"
+            script="$PLUGIN_DIR/workspaces.sh"
+        --subscribe "$item_name" aerospace_workspace_change
+    )
+done < <(echo "$workspaces_json" | jq -c '.[]')
+
+if [[ ${#args[@]} -gt 0 ]]; then
+    sketchybar "${args[@]}"
+fi
