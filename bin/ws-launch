@@ -82,16 +82,38 @@ launch_app() {
     before_ids=$(current_window_ids)
 
     log "Launching $app_name..."
-    if [[ ${#args[@]} -gt 0 ]]; then
-        open -n -a "$app_name" --args "${args[@]}" 2>/dev/null || {
+
+    # Extract URLs from args
+    local urls=()
+    local other_args=()
+    for arg in "${args[@]}"; do
+        if [[ "$arg" =~ ^https?:// ]]; then
+            urls+=("$arg")
+        else
+            other_args+=("$arg")
+        fi
+    done
+
+    if [[ ${#urls[@]} -gt 0 ]]; then
+        local url="${urls[0]}"
+        osascript \
+            -e "tell application \"$app_name\"" \
+            -e "    set newWindow to make new window" \
+            -e "    set URL of active tab of newWindow to \"$url\"" \
+            -e "end tell" 2>/dev/null || {
+            warn "Failed to create $app_name window with URL"
+            return 1
+        }
+    elif [[ ${#other_args[@]} -gt 0 ]]; then
+        open -a "$app_name" --args "${other_args[@]}" 2>/dev/null || {
             warn "Failed to launch $app_name"
             return 1
         }
     else
-        open -n -a "$app_name" 2>/dev/null || {
-            warn "Failed to launch $app_name"
-            return 1
-        }
+        osascript -e "tell application \"$app_name\" to make new window" 2>/dev/null \
+            || osascript -e "tell application \"$app_name\" to create window with default profile" 2>/dev/null \
+            || open -a "$app_name" 2>/dev/null \
+            || { warn "Failed to launch $app_name"; return 1; }
     fi
 
     local new_window_id
@@ -152,6 +174,7 @@ main() {
         launch_app "$slot" "$app_name" "${args[@]}"
     done
 
+    aerospace workspace "$slot"
     log "Workspace '$display_name' launched in slot $slot."
 }
 

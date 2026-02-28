@@ -10,11 +10,15 @@ RESULT_FILE="/tmp/ws-pick-result.$$"
 cleanup() { rm -f "$RESULT_FILE"; }
 trap cleanup EXIT
 
-# Tell the picker where to write its result
-export WS_PICK_RESULT_FILE="$RESULT_FILE"
-
-# Launch picker in iTerm2
-osascript -e "tell application \"iTerm\" to create window with profile \"Workspace Picker\" command \"WS_PICK_RESULT_FILE=$RESULT_FILE $REPO_DIR/bin/ws-pick\""
+# Launch picker in iTerm2 with login shell, then exec into picker
+osascript <<EOF
+tell application "iTerm"
+    set newWindow to (create window with profile "Workspace Picker")
+    tell current session of newWindow
+        write text "exec $REPO_DIR/bin/ws-pick $RESULT_FILE"
+    end tell
+end tell
+EOF
 
 # Wait for result (up to 30 seconds)
 for _ in $(seq 1 300); do

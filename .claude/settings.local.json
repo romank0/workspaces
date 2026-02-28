@@ -16,9 +16,8 @@
       "WebFetch(domain:www.josean.com)",
       "Bash(python3:*)",
       "Bash(.venv/bin/python3:*)",
-      "WebFetch(domain:iterm2.com)",
-      "WebFetch(domain:gist.github.com)",
-      "WebFetch(domain:seb.jambor.dev)"
+      "WebFetch(domain:*)",
+      "Bash(choose:*)"
     ]
   }
 }

@@ -37,12 +37,21 @@ def apply_modifications(config):
     ]
 
     config["gaps"]["outer"]["top"] = 36
+    config["accordion-padding"] = 0
 
     config["persistent-workspaces"] = ["1"]
 
-    # Add alt-space to open workspace picker
-    wrapper = str(REPO_DIR / "bin" / "ws-pick-wrapper")
-    config["mode"]["main"]["binding"]["alt-space"] = f"exec-and-forget {wrapper}"
+    config.setdefault("on-window-detected", []).append({
+        "if": {"window-title-regex-substring": "Workspace Picker"},
+        "run": "layout floating",
+    })
+
+    # Accordion cycling: override default up/down to left/right
+    config["mode"]["main"]["binding"]["alt-j"] = "focus left --boundaries-action wrap-around-the-workspace"
+    config["mode"]["main"]["binding"]["alt-k"] = "focus right --boundaries-action wrap-around-the-workspace"
+
+    picker = str(REPO_DIR / "bin" / "ws-pick")
+    config["mode"]["main"]["binding"]["alt-enter"] = f"exec-and-forget {picker}"
 
     return config
 
