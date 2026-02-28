@@ -1,0 +1,18 @@
+{
+  "Profiles": [
+    {
+      "Guid": "E861EDB5-EE43-489C-9C64-58CE2FBDBD98",
+      "Name": "Workspace Picker",
+      "Columns": 70,
+      "Rows": 20,
+      "Transparency": 0.15,
+      "Blur": true,
+      "Blur Radius": 10.0,
+      "Close Sessions On End": true,
+      "Silence Bell": true,
+      "Custom Window Title": "Workspace Picker",
+      "Use Custom Window Title": true,
+      "Prompt Before Closing 2": 0
+    }
+  ]
+}
