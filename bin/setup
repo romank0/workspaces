@@ -78,14 +78,16 @@ reload_services() {
         aerospace reload-config
         log "Reloaded Aerospace config."
     else
-        warn "Aerospace is not running. Start it manually."
+        open -a AeroSpace
+        log "Started AeroSpace."
     fi
 
     if pgrep -q sketchybar; then
         sketchybar --reload
         log "Reloaded SketchyBar."
     else
-        warn "SketchyBar is not running. Start it manually."
+        brew services start sketchybar 2>/dev/null || sketchybar &
+        log "Started SketchyBar."
     fi
 }
 
