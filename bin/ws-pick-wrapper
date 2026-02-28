@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# ABOUTME: Wrapper that launches the workspace picker in iTerm2 and acts on the result.
+# ABOUTME: Runs outside iTerm2 so workspace switching doesn't conflict with window close.
+
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+RESULT_FILE="/tmp/ws-pick-result.$$"
+
+cleanup() { rm -f "$RESULT_FILE"; }
+trap cleanup EXIT
+
+# Tell the picker where to write its result
+export WS_PICK_RESULT_FILE="$RESULT_FILE"
+
+# Launch picker in iTerm2
+osascript -e "tell application \"iTerm\" to create window with profile \"Workspace Picker\" command \"WS_PICK_RESULT_FILE=$RESULT_FILE $REPO_DIR/bin/ws-pick\""
+
+# Wait for result (up to 30 seconds)
+for _ in $(seq 1 300); do
+    if [[ -f "$RESULT_FILE" ]]; then
+        action=$(cat "$RESULT_FILE")
+        rm -f "$RESULT_FILE"
+
+        case "$action" in
+            switch:*)
+                slot="${action#switch:}"
+                aerospace workspace "$slot"
+                ;;
+            launch:*)
+                # format: launch:template:slot:name
+                IFS=: read -r _ template slot name <<< "$action"
+                "$REPO_DIR/bin/ws-launch" "$template" "$slot" "$name"
+                ;;
+        esac
+        exit 0
+    fi
+    sleep 0.1
+done

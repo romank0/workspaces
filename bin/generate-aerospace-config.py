@@ -41,12 +41,8 @@ def apply_modifications(config):
     config["persistent-workspaces"] = ["1"]
 
     # Add alt-space to open workspace picker
-    picker_cmd = (
-        "exec-and-forget osascript -e "
-        "'tell application \"iTerm\" to create window with profile \"Workspace Picker\" "
-        "command \"" + str(REPO_DIR / "bin" / "ws-pick") + "\"'"
-    )
-    config["mode"]["main"]["binding"]["alt-space"] = picker_cmd
+    wrapper = str(REPO_DIR / "bin" / "ws-pick-wrapper")
+    config["mode"]["main"]["binding"]["alt-space"] = f"exec-and-forget {wrapper}"
 
     return config
 

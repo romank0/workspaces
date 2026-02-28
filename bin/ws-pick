@@ -1,14 +1,21 @@
 #!/usr/bin/env bash
 # ABOUTME: Interactive workspace picker using fzf in an iTerm2 popup.
-# ABOUTME: Supports switching to active workspaces and creating new ones from templates.
+# ABOUTME: Writes selection to WS_PICK_RESULT_FILE for the wrapper to act on.
 
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TEMPLATES_FILE="$REPO_DIR/templates/workspaces.yaml"
 NAME_STORE="$HOME/.local/state/workspaces/names"
+RESULT_FILE="${WS_PICK_RESULT_FILE:-}"
 
 die() { printf 'ERROR: %s\n' "$*" >&2; sleep 2; exit 1; }
+
+write_result() {
+    if [[ -n "$RESULT_FILE" ]]; then
+        echo "$1" > "$RESULT_FILE"
+    fi
+}
 
 declare -A display_names
 load_display_names() {
@@ -57,12 +64,6 @@ next_available_slot() {
     die "No available slots"
 }
 
-do_switch() {
-    local slot="$1"
-    # Switch in background so the picker window closing doesn't bounce focus back
-    nohup aerospace workspace "$slot" &>/dev/null &
-}
-
 do_create() {
     local template="$1"
 
@@ -70,30 +71,28 @@ do_create() {
     default_slot=$(next_available_slot)
 
     echo ""
-    printf "Slot [%s]: " "$default_slot" > /dev/tty
+    printf "Slot [%s]: " "$default_slot"
     read -r slot < /dev/tty
     slot="${slot:-$default_slot}"
     slot=$(echo "$slot" | tr '[:lower:]' '[:upper:]')
 
-    printf "Name [%s]: " "$template" > /dev/tty
+    printf "Name [%s]: " "$template"
     read -r name < /dev/tty
     name="${name:-$template}"
 
-    echo "" > /dev/tty
-    echo "Creating workspace '$name' in slot $slot from template '$template'..." > /dev/tty
-    "$REPO_DIR/bin/ws-launch" "$template" "$slot" "$name"
+    write_result "launch:${template}:${slot}:${name}"
 }
 
 main() {
     aerospace list-workspaces --focused >/dev/null 2>&1 || die "Aerospace is not running"
     command -v fzf >/dev/null 2>&1 || die "fzf not found"
+    [[ -n "$RESULT_FILE" ]] || die "WS_PICK_RESULT_FILE not set (run via ws-pick-wrapper)"
 
     load_display_names
 
     local focused_slot
     focused_slot=$(get_focused_slot)
 
-    # Build menu entries
     local entries=""
 
     local active
@@ -142,7 +141,7 @@ main() {
         do_create "$template"
     elif [[ "$selection" =~ ^.\ ([^ ]+)\ \ (.+)$ ]]; then
         local slot="${BASH_REMATCH[1]}"
-        do_switch "$slot"
+        write_result "switch:${slot}"
     fi
 }
 
