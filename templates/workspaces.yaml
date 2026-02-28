@@ -14,12 +14,12 @@
 
 AI:
   apps:
-    - app: iTerm2
+    - app: iTerm
     - app: Google Chrome
       args: ["--new-window", "https://claude.ai"]
 
 Backend:
   apps:
-    - iTerm2
+    - iTerm
     - app: Google Chrome
       args: ["--new-window", "http://localhost:3000"]

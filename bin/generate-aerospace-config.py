@@ -38,6 +38,8 @@ def apply_modifications(config):
         f'exec-and-forget bash -c "{sketchybar_trigger}"'
     ]
 
+    config["gaps"]["outer"]["top"] = 36
+
     return config
 
 
