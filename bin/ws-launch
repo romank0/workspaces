@@ -70,6 +70,34 @@ current_window_ids() {
         | jq -r '.[].["window-id"]' 2>/dev/null || true
 }
 
+# Captures window-id → workspace mapping for a given app
+snapshot_app_windows() {
+    local app_name="$1"
+    aerospace list-windows --all --json --format '%{window-id}%{tab}%{app-name}%{tab}%{workspace}' \
+        | jq -r --arg app "$app_name" \
+            '.[] | select(.["app-name"] == $app) | "\(.["window-id"]) \(.workspace)"' 2>/dev/null || true
+}
+
+# Restores displaced windows to their original workspaces
+restore_displaced_windows() {
+    local app_name="$1"
+    local original_positions="$2"
+
+    [[ -n "$original_positions" ]] || return 0
+
+    local current_positions
+    current_positions=$(snapshot_app_windows "$app_name")
+
+    while IFS=' ' read -r wid orig_ws; do
+        local cur_ws
+        cur_ws=$(echo "$current_positions" | awk -v id="$wid" '$1 == id { print $2 }')
+        if [[ -n "$cur_ws" && "$cur_ws" != "$orig_ws" ]]; then
+            log "Restoring $app_name window $wid from $cur_ws back to $orig_ws"
+            aerospace move-node-to-workspace "$orig_ws" --window-id "$wid" 2>/dev/null || true
+        fi
+    done <<< "$original_positions"
+}
+
 wait_for_new_window() {
     local before_ids="$1"
     local app_name="$2"
@@ -108,6 +136,8 @@ launch_app() {
 
     local before_ids
     before_ids=$(current_window_ids)
+    local original_positions
+    original_positions=$(snapshot_app_windows "$app_name")
 
     log "Launching $app_name..."
 
@@ -157,6 +187,8 @@ launch_app() {
     else
         warn "Timed out waiting for $app_name window"
     fi
+
+    restore_displaced_windows "$app_name" "$original_positions"
 }
 
 main() {
