@@ -7,14 +7,14 @@
 #       args: launch arguments
 #       profile-tag: iTerm2 profile tag (prompts to choose from matching profiles)
 
-AI:
+mono:
   apps:
     - app: iTerm
       profile-tag: monorepo-ws
     - app: Google Chrome
       args: ["--new-window", "https://claude.ai"]
 
-Backend:
+backend:
   apps:
     - app: iTerm
       profile-tag: monorepo-ws
