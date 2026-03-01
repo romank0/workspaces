@@ -54,20 +54,26 @@ The system SHALL detect URL arguments in template app entries and open a new bro
 - **AND** the active tab URL contains "example.com"
 
 ### Requirement: iTerm profile selection
-The system SHALL support a `profile-tag` field on template app entries. When present, it queries iTerm2 profiles matching that tag and lets the user select one before launching.
+The system SHALL support a `profile-tag` field on template app entries. When present, it queries iTerm2 profiles matching that tag and lets the user select one before launching. The "Default" profile SHALL always be available as an option.
 
 #### Scenario: Multiple profiles with tag
 - **GIVEN** iTerm2 has profiles "ws1" and "ws2" both tagged "test-tag"
 - **AND** `templates/workspaces.yaml` contains a template "Profile" with app iTerm and `profile-tag: test-tag`
 - **WHEN** `ws-launch Profile T TestProf` runs
-- **THEN** a choose-gui picker appears listing both profiles
+- **THEN** a choose-gui picker appears listing "Default", "ws1", and "ws2"
 - **AND** the selected profile is used to create the iTerm window
 
 #### Scenario: Single profile with tag
 - **GIVEN** iTerm2 has exactly one profile tagged "solo-tag"
 - **AND** `templates/workspaces.yaml` contains a template "Solo" with app iTerm and `profile-tag: solo-tag`
 - **WHEN** `ws-launch Solo T TestSolo` runs
-- **THEN** that profile is used automatically without showing a picker
+- **THEN** a choose-gui picker appears listing "Default" and the tagged profile
+
+#### Scenario: Default profile always available
+- **GIVEN** no iTerm2 profiles are tagged "nonexistent-tag"
+- **AND** `templates/workspaces.yaml` contains a template "Fallback" with app iTerm and `profile-tag: nonexistent-tag`
+- **WHEN** `ws-launch Fallback T TestFallback` runs
+- **THEN** the "Default" profile is used automatically
 
 ### Requirement: Bare string app entries
 The system SHALL support apps specified as bare strings (just the app name) in templates, launching them with a new window and no arguments.

@@ -59,6 +59,24 @@ Selecting a template entry SHALL prompt for slot selection (from available slots
 - **THEN** `ws-launch Dev B Backend` runs
 - **AND** workspace B is created with the template's apps
 
+### Requirement: Terminal workspace creation
+The picker SHALL offer a `+ Terminal` entry that creates a workspace with a single iTerm window using the default profile, without requiring a template.
+
+#### Scenario: Create terminal workspace
+- **WHEN** the user selects `+ Terminal`
+- **AND** picks slot B and enters name "DevShell"
+- **THEN** workspace B has an iTerm2 window
+- **AND** the name store contains `B=DevShell`
+
+### Requirement: Rename workspace
+The picker SHALL offer a `~ Rename` entry when the focused workspace has windows, allowing the user to change its display name.
+
+#### Scenario: Rename focused workspace
+- **GIVEN** the focused workspace is A with display name "OldName"
+- **WHEN** the user selects `~ Rename` and enters "NewName"
+- **THEN** the name store contains `A=NewName`
+- **AND** SketchyBar is refreshed
+
 ### Requirement: Slot availability
 The slot picker SHALL only show slots that have no windows assigned, preventing conflicts with existing workspaces.
 
