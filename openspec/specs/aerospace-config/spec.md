@@ -61,12 +61,16 @@ The generated config SHALL include an on-window-detected rule that floats window
 - **WHEN** generate-aerospace-config.py runs
 - **THEN** the output TOML has an `on-window-detected` entry matching `window-title-regex-substring = "Workspace Picker"` with `run = "layout floating"`
 
-### Requirement: Persistent workspace
-The generated config SHALL keep workspace "1" as persistent so it survives config reloads.
+### Requirement: Persistent workspaces
+The generated config SHALL keep workspaces "1" and "2" as persistent so they survive config reloads. Workspace "1" SHALL be pinned to the main monitor (the display with the dock) and workspace "2" SHALL be pinned to the secondary monitor.
 
-#### Scenario: Workspace 1 persistent
+#### Scenario: Persistent workspaces
 - **WHEN** generate-aerospace-config.py runs
-- **THEN** the output TOML has `persistent-workspaces` containing `"1"`
+- **THEN** the output TOML has `persistent-workspaces` containing `"1"` and `"2"`
+
+#### Scenario: Monitor assignment
+- **WHEN** generate-aerospace-config.py runs
+- **THEN** the output TOML has `workspace-to-monitor-force-assignment` mapping `"1"` to `"main"` and `"2"` to `"secondary"`
 
 ### Requirement: Startup sync
 The generated config SHALL run ws-sync after Aerospace starts to initialize SketchyBar workspace items.

@@ -39,7 +39,12 @@ def apply_modifications(config):
     config["gaps"]["outer"]["top"] = 36
     config["accordion-padding"] = 0
 
-    config["persistent-workspaces"] = ["1"]
+    config["persistent-workspaces"] = ["1", "2"]
+
+    config["workspace-to-monitor-force-assignment"] = {
+        "1": "main",
+        "2": "secondary",
+    }
 
     config.setdefault("on-window-detected", []).append({
         "if": {"window-title-regex-substring": "Workspace Picker"},
