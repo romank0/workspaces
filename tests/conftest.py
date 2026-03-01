@@ -2,13 +2,17 @@
 # ABOUTME: Provides helpers to query and manage Aerospace window/workspace state.
 
 import json
+import os
 import subprocess
+import textwrap
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
+import yaml
 
 REPO_DIR = Path(__file__).resolve().parent.parent
+ALL_SLOTS = [str(i) for i in range(1, 10)] + [chr(c) for c in range(ord("A"), ord("Z") + 1)]
 
 
 @dataclass
@@ -64,6 +68,10 @@ class Aerospace:
     def focused_workspace(self) -> str:
         return self.run("list-workspaces", "--focused")
 
+    def occupied_workspaces(self) -> set[str]:
+        snap = self.snapshot()
+        return {w.workspace for w in snap.windows}
+
     def switch_workspace(self, slot: str):
         self.run("workspace", slot)
 
@@ -79,3 +87,85 @@ def aerospace():
 @pytest.fixture
 def repo_dir():
     return REPO_DIR
+
+
+@pytest.fixture
+def unused_slots(aerospace):
+    """Returns a list of workspace slots that currently have no windows."""
+    occupied = aerospace.occupied_workspaces()
+    focused = aerospace.focused_workspace()
+    occupied.add(focused)
+    return [s for s in ALL_SLOTS if s not in occupied]
+
+
+@pytest.fixture
+def test_templates(tmp_path):
+    """Creates a temporary templates file. Returns (path, write_fn).
+
+    Usage:
+        templates_file, write = test_templates
+        write({"MyTemplate": {"apps": ["iTerm"]}})
+    """
+    templates_file = tmp_path / "workspaces.yaml"
+
+    def write(data: dict):
+        templates_file.write_text(yaml.dump(data, default_flow_style=False))
+
+    return templates_file, write
+
+
+@pytest.fixture
+def test_name_store(tmp_path):
+    """Returns path to an isolated name store file for testing."""
+    return tmp_path / "names"
+
+
+@pytest.fixture
+def ws_launch(aerospace, test_templates, test_name_store, unused_slots):
+    """Runs ws-launch with isolated templates and name store.
+
+    Returns a callable: ws_launch(template, slot, display_name=None) -> CompletedProcess
+
+    Tracks all windows created during the test and closes them on teardown.
+    Restores focused workspace on teardown.
+    """
+    templates_file, _ = test_templates
+    original_focus = aerospace.focused_workspace()
+    before_ids = aerospace.snapshot().window_ids()
+    created_window_ids = []
+
+    def run(template: str, slot: str, display_name: str | None = None, timeout: int = 30):
+        args = [str(REPO_DIR / "bin" / "ws-launch"), template, slot]
+        if display_name is not None:
+            args.append(display_name)
+
+        env = os.environ.copy()
+        env["TEMPLATES_FILE"] = str(templates_file)
+        env["NAME_STORE"] = str(test_name_store)
+
+        result = subprocess.run(
+            args,
+            capture_output=True, text=True, timeout=timeout, env=env,
+        )
+
+        # Track new windows for cleanup
+        current_ids = aerospace.snapshot().window_ids()
+        new_ids = current_ids - before_ids - set(created_window_ids)
+        created_window_ids.extend(new_ids)
+
+        return result
+
+    yield run
+
+    # Cleanup: close windows created during test
+    for wid in created_window_ids:
+        try:
+            aerospace.close_window(wid)
+        except Exception:
+            pass
+
+    # Restore focus
+    try:
+        aerospace.switch_workspace(original_focus)
+    except Exception:
+        pass

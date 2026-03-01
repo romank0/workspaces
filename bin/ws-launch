@@ -5,8 +5,8 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-TEMPLATES_FILE="$REPO_DIR/templates/workspaces.yaml"
-NAME_STORE="$HOME/.local/state/workspaces/names"
+TEMPLATES_FILE="${TEMPLATES_FILE:-$REPO_DIR/templates/workspaces.yaml}"
+NAME_STORE="${NAME_STORE:-$HOME/.local/state/workspaces/names}"
 MAX_WAIT_SECONDS=10
 
 log() { printf '%s\n' "$*"; }
