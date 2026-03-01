@@ -176,3 +176,28 @@ def ws_launch(aerospace, test_templates, test_name_store, unused_slots):
         aerospace.switch_workspace(original_focus)
     except Exception:
         pass
+
+
+@pytest.fixture
+def ws_pick(test_templates, test_name_store):
+    """Runs ws-pick with isolated templates and name store.
+
+    Returns a callable: ws_pick(*args, choose_cmd=None) -> CompletedProcess
+    """
+    templates_file, _ = test_templates
+
+    def run(*args: str, choose_cmd: str | None = None, timeout: int = 10):
+        cmd = [str(REPO_DIR / "bin" / "ws-pick"), *args]
+
+        env = os.environ.copy()
+        env["TEMPLATES_FILE"] = str(templates_file)
+        env["NAME_STORE"] = str(test_name_store)
+        if choose_cmd is not None:
+            env["CHOOSE_CMD"] = choose_cmd
+
+        return subprocess.run(
+            cmd,
+            capture_output=True, text=True, timeout=timeout, env=env,
+        )
+
+    return run
