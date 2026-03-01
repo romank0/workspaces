@@ -1,6 +1,7 @@
 # ABOUTME: Integration tests for workspace launching (ws-launch).
 # ABOUTME: Tests scenarios from the workspace-launching spec against real Aerospace.
 
+import subprocess
 import time
 
 
@@ -142,6 +143,44 @@ class TestDisplayNamePersistence:
         contents = test_name_store.read_text()
         assert f"{slot}=NewName" in contents
         assert f"{slot}=OldName" not in contents
+
+
+class TestBrowserUrlSupport:
+    """Requirement: Browser URL support."""
+
+    def test_chrome_window_with_url(self, aerospace, ws_launch, test_templates, unused_slots):
+        """Scenario: Chrome window with URL.
+
+        GIVEN templates contains "Web" with app Google Chrome
+              and args ["--new-window", "https://example.com"]
+        WHEN ws-launch Web <slot> TestWeb runs
+        THEN a new Google Chrome window is created on workspace <slot>
+        AND the active tab URL contains "example.com"
+        """
+        slot = unused_slots[0]
+        _, write = test_templates
+        write({"Web": {"apps": [
+            {"app": "Google Chrome", "args": ["--new-window", "https://example.com"]},
+        ]}})
+
+        result = ws_launch("Web", slot, "TestWeb")
+        assert result.returncode == 0, f"ws-launch failed: {result.stderr}"
+        time.sleep(2)
+
+        snap = aerospace.snapshot()
+        chrome_on_slot = [w for w in snap.windows_on(slot) if w.app_name == "Google Chrome"]
+        assert len(chrome_on_slot) > 0, f"Expected Chrome on workspace {slot}"
+
+        # Verify URL via AppleScript
+        url_result = subprocess.run(
+            ["osascript", "-e",
+             f'tell application "Google Chrome" to get URL of active tab of window id {chrome_on_slot[0].window_id}'],
+            capture_output=True, text=True, timeout=5,
+        )
+        if url_result.returncode == 0:
+            assert "example.com" in url_result.stdout, (
+                f"Expected URL containing 'example.com', got: {url_result.stdout.strip()}"
+            )
 
 
 class TestBareStringApp:
