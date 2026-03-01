@@ -99,6 +99,51 @@ class TestNoWindowStealing:
         )
 
 
+class TestDisplayNamePersistence:
+    """Requirement: Display name persistence."""
+
+    def test_name_saved_on_launch(self, ws_launch, test_templates, test_name_store, unused_slots):
+        """Scenario: Name saved on launch.
+
+        GIVEN templates contains "Minimal" with app iTerm
+        WHEN ws-launch Minimal <slot> MyWorkspace runs
+        THEN the name store contains line "<slot>=MyWorkspace"
+        """
+        slot = unused_slots[0]
+        _, write = test_templates
+        write({"Minimal": {"apps": ["iTerm"]}})
+
+        result = ws_launch("Minimal", slot, "MyWorkspace")
+        assert result.returncode == 0, f"ws-launch failed: {result.stderr}"
+
+        contents = test_name_store.read_text()
+        assert f"{slot}=MyWorkspace" in contents
+
+    def test_name_overwritten_on_relaunch(self, ws_launch, test_templates, test_name_store, unused_slots):
+        """Scenario: Name overwritten on relaunch.
+
+        GIVEN slot <slot> has name "OldName" in the name store
+        AND templates contains "Minimal" with app iTerm
+        WHEN ws-launch Minimal <slot> NewName runs
+        THEN the name store contains "<slot>=NewName"
+        AND the name store does NOT contain "<slot>=OldName"
+        """
+        slot = unused_slots[0]
+        _, write = test_templates
+        write({"Minimal": {"apps": ["iTerm"]}})
+
+        # Seed with old name
+        test_name_store.parent.mkdir(parents=True, exist_ok=True)
+        test_name_store.write_text(f"{slot}=OldName\n")
+
+        result = ws_launch("Minimal", slot, "NewName")
+        assert result.returncode == 0, f"ws-launch failed: {result.stderr}"
+
+        contents = test_name_store.read_text()
+        assert f"{slot}=NewName" in contents
+        assert f"{slot}=OldName" not in contents
+
+
 class TestBareStringApp:
     """Requirement: Bare string app entries."""
 
