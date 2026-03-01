@@ -30,7 +30,15 @@ pick_iterm_profile() {
     local tag="$1"
     local profiles
     profiles=$(profiles_by_tag "$tag")
-    [[ -n "$profiles" ]] || die "No iTerm2 profiles with tag '$tag'"
+
+    # Always include Default profile
+    if [[ -n "$profiles" ]]; then
+        if ! echo "$profiles" | grep -qx "Default"; then
+            profiles="Default"$'\n'"$profiles"
+        fi
+    else
+        profiles="Default"
+    fi
 
     local count
     count=$(echo "$profiles" | wc -l | tr -d ' ')
