@@ -6,7 +6,8 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TEMPLATES_FILE="${TEMPLATES_FILE:-$REPO_DIR/templates/workspaces.yaml}"
-NAME_STORE="${NAME_STORE:-$HOME/.local/state/workspaces/names}"
+# shellcheck source=../lib/name-store.sh
+source "$REPO_DIR/lib/name-store.sh"
 MAX_WAIT_SECONDS=10
 
 log() { printf '%s\n' "$*"; }
@@ -50,19 +51,6 @@ usage() {
     echo "Available templates:"
     yq 'keys | .[]' "$TEMPLATES_FILE" 2>/dev/null | sed 's/^/  /'
     exit 1
-}
-
-save_display_name() {
-    local slot="$1"
-    local name="$2"
-    mkdir -p "$(dirname "$NAME_STORE")"
-
-    # Remove existing entry for this slot, then append
-    if [[ -f "$NAME_STORE" ]]; then
-        grep -v "^${slot}=" "$NAME_STORE" > "$NAME_STORE.tmp" 2>/dev/null || true
-        mv "$NAME_STORE.tmp" "$NAME_STORE"
-    fi
-    echo "${slot}=${name}" >> "$NAME_STORE"
 }
 
 current_window_ids() {

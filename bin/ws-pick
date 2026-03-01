@@ -5,8 +5,9 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-TEMPLATES_FILE="$REPO_DIR/templates/workspaces.yaml"
-NAME_STORE="$HOME/.local/state/workspaces/names"
+TEMPLATES_FILE="${TEMPLATES_FILE:-$REPO_DIR/templates/workspaces.yaml}"
+# shellcheck source=../lib/name-store.sh
+source "$REPO_DIR/lib/name-store.sh"
 
 declare -A display_names
 load_display_names() {
