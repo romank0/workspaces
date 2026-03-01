@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# ABOUTME: Test helper that simulates choose-gui by returning a predetermined selection.
+# ABOUTME: Reads MOCK_CHOOSE_RESPONSE env var and outputs it, ignoring stdin and flags.
+
+# Consume stdin so the caller doesn't get a broken pipe
+cat >/dev/null
+
+echo "${MOCK_CHOOSE_RESPONSE:-}"

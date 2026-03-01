@@ -20,7 +20,8 @@
       "Bash(choose:*)",
       "Bash(.venv/bin/pytest:*)",
       "Bash(openspec:*)",
-      "Bash(bin/ws-pick:*)"
+      "Bash(bin/ws-pick:*)",
+      "Bash(jj desc:*)"
     ]
   }
 }

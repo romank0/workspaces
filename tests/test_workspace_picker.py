@@ -1,7 +1,15 @@
 # ABOUTME: Integration tests for the workspace picker (ws-pick).
 # ABOUTME: Tests scenarios from the workspace-picker spec against real Aerospace.
 
+import os
+import subprocess
+import threading
 import time
+from pathlib import Path
+
+import pytest
+
+REPO_DIR = Path(__file__).resolve().parent.parent
 
 
 class TestActiveWorkspaceListing:
@@ -182,3 +190,115 @@ class TestSlotAvailability:
         # All listed slots should be occupied
         for slot in listed_slots:
             assert slot in occupied, f"Slot {slot} listed but has no windows"
+
+
+def send_keystroke(text, delay=0.3):
+    """Send keystrokes to the frontmost application via System Events."""
+    time.sleep(delay)
+    subprocess.run(
+        ["osascript", "-e",
+         f'tell application "System Events"\n'
+         f'  keystroke "{text}"\n'
+         f'  delay 0.3\n'
+         f'  keystroke return\n'
+         f'end tell'],
+        capture_output=True, timeout=5,
+    )
+
+
+def wait_for_choose(timeout=5):
+    """Wait for a choose-gui process to appear."""
+    for _ in range(timeout * 4):
+        result = subprocess.run(["pgrep", "-x", "choose"], capture_output=True)
+        if result.returncode == 0:
+            return True
+        time.sleep(0.25)
+    return False
+
+
+def automate_create_flow(template_filter, slot, name):
+    """Background thread: automates three successive choose-gui prompts."""
+    # Step 1: select template
+    if not wait_for_choose():
+        return
+    send_keystroke(template_filter)
+
+    # Step 2: select slot
+    if not wait_for_choose():
+        return
+    send_keystroke(slot)
+
+    # Step 3: enter name
+    if not wait_for_choose():
+        return
+    # Name prompt has a default value pre-filled; clear it first
+    subprocess.run(
+        ["osascript", "-e",
+         'tell application "System Events"\n'
+         '  keystroke "a" using command down\n'
+         '  delay 0.1\n'
+         f'  keystroke "{name}"\n'
+         '  delay 0.3\n'
+         '  keystroke return\n'
+         'end tell'],
+        capture_output=True, timeout=5,
+    )
+
+
+@pytest.mark.ui
+class TestPickerUI:
+    """End-to-end UI test using real choose-gui."""
+
+    def test_create_from_template_via_ui(self, aerospace, test_templates, test_name_store, unused_slots):
+        """Full UI flow: select template → pick slot → enter name → workspace created.
+
+        This test opens real choose-gui windows and sends keystrokes via System Events.
+        Run with: pytest -m ui
+        """
+        slot = unused_slots[0]
+        _, write = test_templates
+        write({"UITest": {"apps": ["iTerm", "Google Chrome"]}})
+
+        before_ids = aerospace.snapshot().window_ids()
+
+        # Start automation thread before launching picker
+        auto_thread = threading.Thread(
+            target=automate_create_flow,
+            args=("UITest", slot, "AutoTest"),
+        )
+        auto_thread.start()
+
+        # Run ws-pick with real choose-gui but isolated templates/name store
+        env = os.environ.copy()
+        env["TEMPLATES_FILE"] = str(test_templates[0])
+        env["NAME_STORE"] = str(test_name_store)
+
+        result = subprocess.run(
+            [str(REPO_DIR / "bin" / "ws-pick")],
+            capture_output=True, text=True, timeout=30, env=env,
+        )
+
+        auto_thread.join(timeout=5)
+
+        assert result.returncode == 0, f"ws-pick failed: {result.stderr}"
+
+        # Give launched apps time to create windows
+        time.sleep(3)
+
+        snap = aerospace.snapshot()
+        apps = snap.apps_on(slot)
+        assert "iTerm2" in apps, f"Expected iTerm2 on workspace {slot}, got: {apps}"
+        assert "Google Chrome" in apps, f"Expected Google Chrome on workspace {slot}, got: {apps}"
+
+        # Verify display name was saved
+        assert test_name_store.exists(), "Name store should exist"
+        contents = test_name_store.read_text()
+        assert f"{slot}=AutoTest" in contents
+
+        # Cleanup: close windows created during test
+        current_ids = aerospace.snapshot().window_ids()
+        for wid in current_ids - before_ids:
+            try:
+                aerospace.close_window(wid)
+            except Exception:
+                pass
