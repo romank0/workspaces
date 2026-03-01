@@ -17,7 +17,8 @@
       "Bash(python3:*)",
       "Bash(.venv/bin/python3:*)",
       "WebFetch(domain:*)",
-      "Bash(choose:*)"
+      "Bash(choose:*)",
+      "Bash(.venv/bin/pytest:*)"
     ]
   }
 }
