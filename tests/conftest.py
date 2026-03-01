@@ -12,6 +12,8 @@ import pytest
 import yaml
 
 REPO_DIR = Path(__file__).resolve().parent.parent
+# Prefer high letter slots for tests to avoid multi-monitor workspace conflicts
+TEST_PREFERRED_SLOTS = [chr(c) for c in range(ord("T"), ord("Z") + 1)]
 ALL_SLOTS = [str(i) for i in range(1, 10)] + [chr(c) for c in range(ord("A"), ord("Z") + 1)]
 
 
@@ -91,11 +93,16 @@ def repo_dir():
 
 @pytest.fixture
 def unused_slots(aerospace):
-    """Returns a list of workspace slots that currently have no windows."""
+    """Returns a list of workspace slots that currently have no windows.
+
+    Prefers high letter slots (T-Z) to avoid multi-monitor workspace conflicts.
+    """
     occupied = aerospace.occupied_workspaces()
     focused = aerospace.focused_workspace()
     occupied.add(focused)
-    return [s for s in ALL_SLOTS if s not in occupied]
+    preferred = [s for s in TEST_PREFERRED_SLOTS if s not in occupied]
+    rest = [s for s in ALL_SLOTS if s not in occupied and s not in TEST_PREFERRED_SLOTS]
+    return preferred + rest
 
 
 @pytest.fixture
