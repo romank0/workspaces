@@ -3,23 +3,20 @@
 
 # Apps can be specified as:
 #   - A bare string: just the app name
-#   - An object with 'app' and 'args': app name + launch arguments
-#
-# Example:
-#   MyWorkspace:
-#     apps:
-#       - Slack
-#       - app: Google Chrome
-#         args: ["--new-window", "https://example.com"]
+#   - An object with 'app' and optional fields:
+#       args: launch arguments
+#       profile-tag: iTerm2 profile tag (prompts to choose from matching profiles)
 
 AI:
   apps:
     - app: iTerm
+      profile-tag: monorepo-ws
     - app: Google Chrome
       args: ["--new-window", "https://claude.ai"]
 
 Backend:
   apps:
-    - iTerm
+    - app: iTerm
+      profile-tag: monorepo-ws
     - app: Google Chrome
       args: ["--new-window", "http://localhost:3000"]

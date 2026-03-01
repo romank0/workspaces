@@ -13,6 +13,33 @@ log() { printf '%s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
+profiles_by_tag() {
+    local tag="$1"
+    python3 -c "
+import plistlib, subprocess, sys
+out = subprocess.run(['defaults', 'export', 'com.googlecode.iterm2', '-'], capture_output=True)
+data = plistlib.loads(out.stdout)
+for p in data.get('New Bookmarks', []):
+    if '$tag' in p.get('Tags', []):
+        print(p['Name'])
+"
+}
+
+pick_iterm_profile() {
+    local tag="$1"
+    local profiles
+    profiles=$(profiles_by_tag "$tag")
+    [[ -n "$profiles" ]] || die "No iTerm2 profiles with tag '$tag'"
+
+    local count
+    count=$(echo "$profiles" | wc -l | tr -d ' ')
+    if [[ "$count" -eq 1 ]]; then
+        echo "$profiles"
+    else
+        echo "$profiles" | choose -p "iTerm2 profile:" -n 10 || exit 0
+    fi
+}
+
 usage() {
     echo "Usage: ws-launch <template> <slot> [display-name]"
     echo ""
@@ -75,7 +102,8 @@ wait_for_new_window() {
 launch_app() {
     local slot="$1"
     local app_name="$2"
-    shift 2
+    local iterm_profile="$3"
+    shift 3
     local args=("$@")
 
     local before_ids
@@ -94,7 +122,12 @@ launch_app() {
         fi
     done
 
-    if [[ ${#urls[@]} -gt 0 ]]; then
+    if [[ -n "$iterm_profile" ]]; then
+        osascript -e "tell application \"iTerm\" to create window with profile \"$iterm_profile\"" 2>/dev/null || {
+            warn "Failed to create iTerm window with profile '$iterm_profile'"
+            return 1
+        }
+    elif [[ ${#urls[@]} -gt 0 ]]; then
         local url="${urls[0]}"
         osascript \
             -e "tell application \"$app_name\"" \
@@ -153,12 +186,23 @@ main() {
     local app_count
     app_count=$(yq ".\"$template\".apps | length" "$TEMPLATES_FILE")
 
+    # Resolve iTerm profiles upfront (shows picker before launching anything)
+    declare -A resolved_profiles
+    for ((i = 0; i < app_count; i++)); do
+        local ptag
+        ptag=$(yq ".\"$template\".apps[$i].\"profile-tag\" // \"\"" "$TEMPLATES_FILE")
+        if [[ -n "$ptag" ]]; then
+            resolved_profiles[$i]=$(pick_iterm_profile "$ptag")
+        fi
+    done
+
     for ((i = 0; i < app_count; i++)); do
         local entry_type
         entry_type=$(yq ".\"$template\".apps[$i] | type" "$TEMPLATES_FILE")
 
         local app_name
         local args=()
+        local iterm_profile="${resolved_profiles[$i]:-}"
 
         if [[ "$entry_type" == "!!str" ]]; then
             app_name=$(yq ".\"$template\".apps[$i]" "$TEMPLATES_FILE")
@@ -171,7 +215,7 @@ main() {
             done
         fi
 
-        launch_app "$slot" "$app_name" "${args[@]}"
+        launch_app "$slot" "$app_name" "$iterm_profile" "${args[@]}"
     done
 
     aerospace workspace "$slot"
