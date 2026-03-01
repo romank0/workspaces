@@ -18,7 +18,8 @@
       "Bash(.venv/bin/python3:*)",
       "WebFetch(domain:*)",
       "Bash(choose:*)",
-      "Bash(.venv/bin/pytest:*)"
+      "Bash(.venv/bin/pytest:*)",
+      "Bash(openspec:*)"
     ]
   }
 }
