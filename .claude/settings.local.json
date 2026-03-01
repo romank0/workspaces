@@ -19,7 +19,8 @@
       "WebFetch(domain:*)",
       "Bash(choose:*)",
       "Bash(.venv/bin/pytest:*)",
-      "Bash(openspec:*)"
+      "Bash(openspec:*)",
+      "Bash(bin/ws-pick:*)"
     ]
   }
 }

@@ -6,6 +6,7 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 TEMPLATES_FILE="${TEMPLATES_FILE:-$REPO_DIR/templates/workspaces.yaml}"
+CHOOSE_CMD="${CHOOSE_CMD:-choose}"
 # shellcheck source=../lib/name-store.sh
 source "$REPO_DIR/lib/name-store.sh"
 
@@ -32,20 +33,6 @@ available_templates() {
     yq 'keys | .[]' "$TEMPLATES_FILE" 2>/dev/null
 }
 
-next_available_slot() {
-    local used_slots
-    used_slots=$(aerospace list-windows --all --json --format '%{workspace}' 2>/dev/null \
-        | jq -r '.[].workspace' | sort -u)
-
-    for slot in {1..9} {A..Z}; do
-        if ! echo "$used_slots" | grep -qx "$slot"; then
-            echo "$slot"
-            return
-        fi
-    done
-    return 1
-}
-
 pick_slot() {
     local used_slots
     used_slots=$(aerospace list-windows --all --json --format '%{workspace}' 2>/dev/null \
@@ -58,18 +45,11 @@ pick_slot() {
         fi
     done
 
-    echo -n "$entries" | choose -p "Slot:" -n 10
+    echo -n "$entries" | $CHOOSE_CMD -p "Slot:" -n 10
 }
 
-main() {
-    aerospace list-workspaces --focused >/dev/null 2>&1 || exit 1
-    command -v choose >/dev/null 2>&1 || exit 1
-
-    load_display_names
-
-    local focused_slot
-    focused_slot=$(aerospace list-workspaces --focused 2>/dev/null || true)
-
+build_entries() {
+    local focused_slot="$1"
     local entries=""
 
     local active
@@ -86,6 +66,11 @@ main() {
         done <<< "$active"
     fi
 
+    # Rename option (when focused workspace has windows)
+    if [[ -n "$active" ]] && echo "$active" | cut -d' ' -f1 | grep -qx "$focused_slot"; then
+        entries+="~ Rename"$'\n'
+    fi
+
     local templates
     templates=$(available_templates)
     if [[ -n "$templates" ]]; then
@@ -94,12 +79,39 @@ main() {
         done <<< "$templates"
     fi
 
-    [[ -z "$entries" ]] && exit 0
+    entries+="+ Terminal"$'\n'
 
-    local selection
-    selection=$(echo -n "$entries" | choose -p "Workspace:" -n 12) || exit 0
+    echo -n "$entries"
+}
 
-    if [[ "$selection" =~ ^\+\ New\ from\ (.+)$ ]]; then
+handle_selection() {
+    local selection="$1"
+    local focused_slot="$2"
+
+    if [[ "$selection" == "+ Terminal" ]]; then
+        local slot
+        slot=$(pick_slot) || exit 0
+        slot=$(echo "$slot" | tr '[:lower:]' '[:upper:]')
+
+        local name
+        name=$(echo "Terminal" | $CHOOSE_CMD -m -p "Name:" -e) || exit 0
+        name="${name:-Terminal}"
+
+        save_display_name "$slot" "$name"
+        aerospace workspace "$slot"
+        osascript -e 'tell application "iTerm" to create window with default profile' 2>/dev/null
+        "$REPO_DIR/bin/ws-sync"
+
+    elif [[ "$selection" == "~ Rename" ]]; then
+        local current_name="${display_names["$focused_slot"]:-}"
+        local new_name
+        new_name=$(echo "$current_name" | $CHOOSE_CMD -m -p "Name:" -e) || exit 0
+        [[ -n "$new_name" ]] || exit 0
+
+        save_display_name "$focused_slot" "$new_name"
+        "$REPO_DIR/bin/ws-sync"
+
+    elif [[ "$selection" =~ ^\+\ New\ from\ (.+)$ ]]; then
         local template="${BASH_REMATCH[1]}"
 
         local slot
@@ -107,14 +119,43 @@ main() {
         slot=$(echo "$slot" | tr '[:lower:]' '[:upper:]')
 
         local name
-        name=$(echo "$template" | choose -m -p "Name:" -e) || exit 0
+        name=$(echo "$template" | $CHOOSE_CMD -m -p "Name:" -e) || exit 0
         name="${name:-$template}"
 
         "$REPO_DIR/bin/ws-launch" "$template" "$slot" "$name"
+
     elif [[ "$selection" =~ ^[*\ ]\ ([^ ]+) ]]; then
         local slot="${BASH_REMATCH[1]}"
         aerospace workspace "$slot"
     fi
+}
+
+main() {
+    aerospace list-workspaces --focused >/dev/null 2>&1 || exit 1
+
+    if [[ "$CHOOSE_CMD" == "choose" ]]; then
+        command -v choose >/dev/null 2>&1 || exit 1
+    fi
+
+    load_display_names
+
+    local focused_slot
+    focused_slot=$(aerospace list-workspaces --focused 2>/dev/null || true)
+
+    local entries
+    entries=$(build_entries "$focused_slot")
+
+    [[ -z "$entries" ]] && exit 0
+
+    if [[ "${1:-}" == "--list" ]]; then
+        echo -n "$entries"
+        exit 0
+    fi
+
+    local selection
+    selection=$(echo -n "$entries" | $CHOOSE_CMD -p "Workspace:" -n 12) || exit 0
+
+    handle_selection "$selection" "$focused_slot"
 }
 
 main "$@"
