@@ -79,6 +79,12 @@ install_sketchybar() {
 
 create_state_dir() {
     mkdir -p "$STATE_DIR"
+    # Seed default names for persistent monitor workspaces
+    local name_store="$STATE_DIR/names"
+    if [[ ! -f "$name_store" ]]; then
+        printf '1=main\n2=secondary\n' > "$name_store"
+        log "Seeded display names for monitor workspaces."
+    fi
     log "Ensured state directory: $STATE_DIR"
 }
 

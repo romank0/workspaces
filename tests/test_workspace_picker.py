@@ -172,12 +172,13 @@ class TestSlotAvailability:
 
         GIVEN some workspaces have windows
         WHEN ws-pick builds its entry list
-        THEN only workspaces with windows appear as switchable entries
-        AND empty slots do NOT appear as workspace entries
+        THEN only workspaces with windows or persistent monitor slots appear
+        AND non-persistent empty slots do NOT appear as workspace entries
         """
         _, write = test_templates
         write({"Dummy": {"apps": ["iTerm"]}})
 
+        persistent_slots = {"1", "2"}
         occupied = aerospace.occupied_workspaces()
 
         result = ws_pick("--list")
@@ -187,9 +188,11 @@ class TestSlotAvailability:
         workspace_entries = [l for l in lines if l.startswith(("*", " ")) and not l.startswith(("~", "+"))]
         listed_slots = {l[2:].split()[0] for l in workspace_entries}
 
-        # All listed slots should be occupied
+        # All listed slots should be occupied or persistent
         for slot in listed_slots:
-            assert slot in occupied, f"Slot {slot} listed but has no windows"
+            assert slot in occupied or slot in persistent_slots, (
+                f"Slot {slot} listed but has no windows and is not persistent"
+            )
 
 
 def send_keystroke(text, delay=0.3):

@@ -50,8 +50,8 @@ while IFS= read -r line; do
     is_focused=$(echo "$line" | jq -r '.["workspace-is-focused"]')
     count=${window_counts["$slot"]:-0}
 
-    # Skip empty unfocused workspaces
-    if [[ "$count" -eq 0 && "$is_focused" != "true" ]]; then
+    # Always show monitor workspaces (1=main, 2=secondary); skip other empty unfocused ones
+    if [[ "$count" -eq 0 && "$is_focused" != "true" && "$slot" != "1" && "$slot" != "2" ]]; then
         continue
     fi
 

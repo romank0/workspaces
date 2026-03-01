@@ -19,11 +19,20 @@ load_display_names() {
     fi
 }
 
+PERSISTENT_SLOTS=("1" "2")
+
 active_workspaces() {
     local windows_json
     windows_json=$(aerospace list-windows --all --json --format '%{workspace}' 2>/dev/null) || return
 
-    echo "$windows_json" | jq -r '.[].workspace' | sort -u | while IFS= read -r slot; do
+    local occupied_slots
+    occupied_slots=$(echo "$windows_json" | jq -r '.[].workspace' | sort -u)
+
+    # Always include persistent monitor workspaces, then occupied ones
+    local all_slots
+    all_slots=$(printf '%s\n' "${PERSISTENT_SLOTS[@]}" $occupied_slots | sort -u)
+
+    echo "$all_slots" | while IFS= read -r slot; do
         local name="${display_names["$slot"]:-$slot}"
         echo "${slot}  ${name}"
     done
