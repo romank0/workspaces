@@ -8,11 +8,8 @@ REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ITEM_PREFIX="ws"
 NAME_STORE="$HOME/.local/state/workspaces/names"
 
-COLOR_FOCUSED="0xffe0af68"
+COLOR_ALERT="0xffe0af68"
 COLOR_OCCUPIED="0xffcdd6f4"
-COLOR_ALERT="0xffed8796"
-BG_FOCUSED="0x40e0af68"
-BG_ALERT="0x40ed8796"
 BG_DEFAULT="0x00000000"
 
 # Bail if aerospace is not running
@@ -66,16 +63,16 @@ while IFS= read -r line; do
     item_name="${ITEM_PREFIX}.${slot}"
     display_name="${display_names["$slot"]:-}"
 
-    if [[ "$is_focused" == "true" ]]; then
-        icon_color="$COLOR_FOCUSED"
-        bg_color="$BG_FOCUSED"
-        bg_drawing="on"
-    elif [[ -n "${alert_slots["$slot"]:-}" ]]; then
+    if [[ -n "${alert_slots["$slot"]:-}" ]]; then
         icon_color="$COLOR_ALERT"
-        bg_color="$BG_ALERT"
-        bg_drawing="on"
     else
         icon_color="$COLOR_OCCUPIED"
+    fi
+
+    if [[ "$is_focused" == "true" ]]; then
+        bg_color="${icon_color/ff/40}"
+        bg_drawing="on"
+    else
         bg_color="$BG_DEFAULT"
         bg_drawing="off"
     fi
