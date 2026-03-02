@@ -8,6 +8,7 @@ REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ITEM_PREFIX="ws"
 NAME_STORE="$HOME/.local/state/workspaces/names"
 
+SLOT_ORDER="${WS_SLOT_ORDER:-1234567890QWERTYUIOPASDFGHJKLZXCVBNM}"
 COLOR_ALERT="0xffe0af68"
 COLOR_OCCUPIED="0xffcdd6f4"
 BG_DEFAULT="0x00000000"
@@ -98,6 +99,7 @@ while IFS= read -r line; do
             padding_right=2
             click_script="aerospace workspace $slot"
     )
-done < <(echo "$workspaces_json" | jq -c '.[]')
+done < <(echo "$workspaces_json" | jq -c --arg order "$SLOT_ORDER" \
+    '[.[] | .workspace as $w | . + {"_idx": ($order | index($w) // 999)}] | sort_by(._idx) | .[]')
 
 sketchybar "${args[@]}" 2>/dev/null || true
