@@ -33,12 +33,18 @@ def run_ws_alert(*args, state_dir, env_extras=None):
     )
 
 
+def alerted_slots(state_dir):
+    """Return the set of currently alerted slots."""
+    alerts_dir = state_dir / "alerts"
+    if not alerts_dir.is_dir():
+        return set()
+    return {f.name for f in alerts_dir.iterdir() if f.is_file()}
+
+
 def test_alert_on_creates_state_file(state_dir):
     result = run_ws_alert("on", "T", state_dir=state_dir)
     assert result.returncode == 0
-    alert_file = state_dir / "alert"
-    assert alert_file.exists()
-    assert alert_file.read_text().strip() == "T"
+    assert alerted_slots(state_dir) == {"T"}
 
 
 def test_alert_on_defaults_to_terminal_workspace(state_dir, aerospace):
@@ -46,8 +52,7 @@ def test_alert_on_defaults_to_terminal_workspace(state_dir, aerospace):
     terminal_ws = aerospace.focused_workspace()
     result = run_ws_alert("on", state_dir=state_dir)
     assert result.returncode == 0
-    alert_file = state_dir / "alert"
-    assert alert_file.read_text().strip() == terminal_ws
+    assert terminal_ws in alerted_slots(state_dir)
 
 
 def test_alert_on_uses_terminal_workspace_not_focused(state_dir, aerospace, unused_slots):
@@ -58,28 +63,25 @@ def test_alert_on_uses_terminal_workspace_not_focused(state_dir, aerospace, unus
     try:
         result = run_ws_alert("on", state_dir=state_dir)
         assert result.returncode == 0, result.stderr
-        alert_file = state_dir / "alert"
-        assert alert_file.read_text().strip() == terminal_ws
+        assert terminal_ws in alerted_slots(state_dir)
     finally:
         aerospace.switch_workspace(terminal_ws)
 
 
 def test_alert_off_removes_state_file(state_dir):
-    alert_file = state_dir / "alert"
-    alert_file.write_text("T")
-    result = run_ws_alert("off", state_dir=state_dir)
+    run_ws_alert("on", "T", state_dir=state_dir)
+    result = run_ws_alert("off", "T", state_dir=state_dir)
     assert result.returncode == 0
-    assert not alert_file.exists()
+    assert "T" not in alerted_slots(state_dir)
 
 
 def test_alert_off_noop_when_no_file(state_dir):
-    result = run_ws_alert("off", state_dir=state_dir)
+    result = run_ws_alert("off", "T", state_dir=state_dir)
     assert result.returncode == 0
 
 
 def test_alert_status_active(state_dir):
-    alert_file = state_dir / "alert"
-    alert_file.write_text("T")
+    run_ws_alert("on", "T", state_dir=state_dir)
     result = run_ws_alert("status", state_dir=state_dir)
     assert result.returncode == 0
 
@@ -87,3 +89,25 @@ def test_alert_status_active(state_dir):
 def test_alert_status_inactive(state_dir):
     result = run_ws_alert("status", state_dir=state_dir)
     assert result.returncode == 1
+
+
+def test_multiple_slots_alerted_simultaneously(state_dir):
+    """Two slots alerted at once must both be present."""
+    run_ws_alert("on", "T", state_dir=state_dir)
+    run_ws_alert("on", "U", state_dir=state_dir)
+    assert alerted_slots(state_dir) == {"T", "U"}
+
+
+def test_alert_off_removes_only_target_slot(state_dir):
+    """Clearing one slot must leave the other intact."""
+    run_ws_alert("on", "T", state_dir=state_dir)
+    run_ws_alert("on", "U", state_dir=state_dir)
+    run_ws_alert("off", "T", state_dir=state_dir)
+    assert alerted_slots(state_dir) == {"U"}
+
+
+def test_alert_on_idempotent(state_dir):
+    """Alerting the same slot twice is harmless."""
+    run_ws_alert("on", "T", state_dir=state_dir)
+    run_ws_alert("on", "T", state_dir=state_dir)
+    assert alerted_slots(state_dir) == {"T"}

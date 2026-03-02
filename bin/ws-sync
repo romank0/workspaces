@@ -29,9 +29,12 @@ if [[ -f "$NAME_STORE" ]]; then
 fi
 
 STATE_DIR="${WS_ALERT_STATE_DIR:-$HOME/.local/state/workspaces}"
-alert_slot=""
-if [[ -f "$STATE_DIR/alert" ]]; then
-    alert_slot=$(cat "$STATE_DIR/alert")
+ALERT_DIR="$STATE_DIR/alerts"
+declare -A alert_slots
+if [[ -d "$ALERT_DIR" ]]; then
+    for f in "$ALERT_DIR"/*; do
+        [[ -f "$f" ]] && alert_slots["$(basename "$f")"]=1
+    done
 fi
 
 # Get all workspaces with focus/visibility info
@@ -70,7 +73,7 @@ while IFS= read -r line; do
         icon_color="$COLOR_FOCUSED"
         bg_color="$BG_FOCUSED"
         bg_drawing="on"
-    elif [[ "$slot" == "$alert_slot" ]]; then
+    elif [[ -n "${alert_slots["$slot"]:-}" ]]; then
         icon_color="$COLOR_ALERT"
         bg_color="$BG_ALERT"
         bg_drawing="on"

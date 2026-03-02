@@ -5,12 +5,12 @@
 set -euo pipefail
 
 STATE_DIR="${WS_ALERT_STATE_DIR:-$HOME/.local/state/workspaces}"
-ALERT_FILE="$STATE_DIR/alert"
+ALERT_DIR="$STATE_DIR/alerts"
 
 usage() {
-    echo "Usage: ws-alert on [SLOT]  — mark slot as alerting (default: terminal's workspace)"
-    echo "       ws-alert off        — clear alert"
-    echo "       ws-alert status     — exit 0 if active, 1 if not"
+    echo "Usage: ws-alert on [SLOT]   — mark slot as alerting (default: terminal's workspace)"
+    echo "       ws-alert off [SLOT]  — clear alert for slot (default: terminal's workspace)"
+    echo "       ws-alert status      — exit 0 if any alert active, 1 if not"
     exit 1
 }
 
@@ -62,16 +62,17 @@ refresh_bar() {
 case "$1" in
     on)
         slot="${2:-$(detect_terminal_workspace)}"
-        mkdir -p "$STATE_DIR"
-        echo "$slot" > "$ALERT_FILE"
+        mkdir -p "$ALERT_DIR"
+        touch "$ALERT_DIR/$slot"
         refresh_bar
         ;;
     off)
-        rm -f "$ALERT_FILE"
+        slot="${2:-$(detect_terminal_workspace)}"
+        rm -f "$ALERT_DIR/$slot"
         refresh_bar
         ;;
     status)
-        [[ -f "$ALERT_FILE" ]]
+        [[ -d "$ALERT_DIR" ]] && [[ -n "$(ls -A "$ALERT_DIR" 2>/dev/null)" ]]
         ;;
     *)
         usage
