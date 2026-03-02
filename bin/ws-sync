@@ -51,11 +51,8 @@ while IFS= read -r line; do
     window_counts["$ws"]=$(( ${window_counts["$ws"]:-0} + 1 ))
 done < <(echo "$windows_json" | jq -c '.[]' 2>/dev/null)
 
-# Remove all existing workspace items
-sketchybar --remove '/^ws\./' 2>/dev/null || true
-
-# Create items only for occupied or focused workspaces
-args=()
+# Remove then recreate in a single sketchybar call to avoid flicker
+args=(--remove '/^ws\./')
 while IFS= read -r line; do
     slot=$(echo "$line" | jq -r '.workspace')
     is_focused=$(echo "$line" | jq -r '.["workspace-is-focused"]')
@@ -106,6 +103,4 @@ while IFS= read -r line; do
     )
 done < <(echo "$workspaces_json" | jq -c '.[]')
 
-if [[ ${#args[@]} -gt 0 ]]; then
-    sketchybar "${args[@]}"
-fi
+sketchybar "${args[@]}" 2>/dev/null || true
