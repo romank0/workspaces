@@ -14,6 +14,42 @@ log() { printf '%s\n' "$*"; }
 warn() { printf 'WARNING: %s\n' "$*" >&2; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
+chrome_local_state_path() {
+    echo "${CHROME_LOCAL_STATE:-$HOME/Library/Application Support/Google/Chrome/Local State}"
+}
+
+resolve_chrome_profile() {
+    local display_name="$1"
+    local local_state
+    local_state=$(chrome_local_state_path)
+    python3 -c "
+import json, sys
+with open('''$local_state''') as f:
+    data = json.load(f)
+cache = data.get('profile', {}).get('info_cache', {})
+for dir_name, info in cache.items():
+    if info.get('name') == '''$display_name''':
+        print(dir_name)
+        sys.exit(0)
+available = [info.get('name', d) for d, info in cache.items()]
+print(f\"Chrome profile '$display_name' not found. Available: {', '.join(available)}\", file=sys.stderr)
+sys.exit(1)
+"
+}
+
+list_chrome_profiles() {
+    local local_state
+    local_state=$(chrome_local_state_path)
+    python3 -c "
+import json, sys
+with open('''$local_state''') as f:
+    data = json.load(f)
+cache = data.get('profile', {}).get('info_cache', {})
+for info in cache.values():
+    print(info.get('name', ''))
+"
+}
+
 profiles_by_tag() {
     local tag="$1"
     python3 -c "
@@ -127,7 +163,8 @@ launch_app() {
     local slot="$1"
     local app_name="$2"
     local iterm_profile="$3"
-    shift 3
+    local chrome_profile_dir="$4"
+    shift 4
     local args=("$@")
 
     local before_ids
@@ -151,6 +188,15 @@ launch_app() {
     if [[ -n "$iterm_profile" ]]; then
         osascript -e "tell application \"iTerm\" to create window with profile \"$iterm_profile\"" 2>/dev/null || {
             warn "Failed to create iTerm window with profile '$iterm_profile'"
+            return 1
+        }
+    elif [[ -n "$chrome_profile_dir" ]]; then
+        local chrome_args=("--args" "--profile-directory=$chrome_profile_dir")
+        if [[ ${#urls[@]} -gt 0 ]]; then
+            chrome_args+=("--new-window" "${urls[0]}")
+        fi
+        open -a "$app_name" "${chrome_args[@]}" 2>/dev/null || {
+            warn "Failed to launch $app_name with profile '$chrome_profile_dir'"
             return 1
         }
     elif [[ ${#urls[@]} -gt 0 ]]; then
@@ -214,13 +260,20 @@ main() {
     local app_count
     app_count=$(yq ".\"$template\".apps | length" "$TEMPLATES_FILE")
 
-    # Resolve iTerm profiles upfront (shows picker before launching anything)
+    # Resolve profiles upfront (shows picker before launching anything)
     declare -A resolved_profiles
+    declare -A resolved_chrome_profiles
     for ((i = 0; i < app_count; i++)); do
         local ptag
         ptag=$(yq ".\"$template\".apps[$i].\"profile-tag\" // \"\"" "$TEMPLATES_FILE")
         if [[ -n "$ptag" ]]; then
             resolved_profiles[$i]=$(pick_iterm_profile "$ptag")
+        fi
+
+        local chrome_profile
+        chrome_profile=$(yq ".\"$template\".apps[$i].\"chrome-profile\" // \"\"" "$TEMPLATES_FILE")
+        if [[ -n "$chrome_profile" ]]; then
+            resolved_chrome_profiles[$i]=$(resolve_chrome_profile "$chrome_profile")
         fi
     done
 
@@ -231,6 +284,7 @@ main() {
         local app_name
         local args=()
         local iterm_profile="${resolved_profiles[$i]:-}"
+        local chrome_profile_dir="${resolved_chrome_profiles[$i]:-}"
 
         if [[ "$entry_type" == "!!str" ]]; then
             app_name=$(yq ".\"$template\".apps[$i]" "$TEMPLATES_FILE")
@@ -243,11 +297,19 @@ main() {
             done
         fi
 
-        launch_app "$slot" "$app_name" "$iterm_profile" "${args[@]}"
+        launch_app "$slot" "$app_name" "$iterm_profile" "$chrome_profile_dir" "${args[@]}"
     done
 
     aerospace workspace "$slot"
     log "Workspace '$display_name' launched in slot $slot."
 }
+
+if [[ "${1:-}" == "--resolve-chrome-profile" ]]; then
+    resolve_chrome_profile "${2:?Usage: ws-launch --resolve-chrome-profile <display-name>}"
+    exit $?
+elif [[ "${1:-}" == "--list-chrome-profiles" ]]; then
+    list_chrome_profiles
+    exit $?
+fi
 
 main "$@"

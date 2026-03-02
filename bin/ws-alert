@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# ABOUTME: Toggles workspace alert state for SketchyBar highlighting.
+# ABOUTME: Writes/removes a state file that ws-sync reads during bar rebuild.
+
+set -euo pipefail
+
+STATE_DIR="${WS_ALERT_STATE_DIR:-$HOME/.local/state/workspaces}"
+ALERT_FILE="$STATE_DIR/alert"
+
+usage() {
+    echo "Usage: ws-alert on [SLOT]  — mark slot as alerting (default: terminal's workspace)"
+    echo "       ws-alert off        — clear alert"
+    echo "       ws-alert status     — exit 0 if active, 1 if not"
+    exit 1
+}
+
+# Find the workspace of the terminal window running this process.
+# Uses iTerm2 session ID to look up the macOS window ID, then maps it
+# to an Aerospace workspace. Falls back to the focused workspace.
+detect_terminal_workspace() {
+    if [[ -n "${ITERM_SESSION_ID:-}" ]]; then
+        local session_uuid="${ITERM_SESSION_ID#*:}"
+        local window_id
+        window_id=$(osascript -e "
+            tell application \"iTerm2\"
+                repeat with w in windows
+                    repeat with t in tabs of w
+                        repeat with s in sessions of t
+                            if unique ID of s is \"$session_uuid\" then
+                                return id of w
+                            end if
+                        end repeat
+                    end repeat
+                end repeat
+            end tell
+        " 2>/dev/null) || true
+
+        if [[ -n "$window_id" ]]; then
+            local workspace
+            workspace=$(aerospace list-windows --monitor all --json \
+                --format '%{window-id}%{tab}%{workspace}' | \
+                jq -r --argjson wid "$window_id" \
+                '.[] | select(.["window-id"] == $wid) | .workspace')
+            if [[ -n "$workspace" ]]; then
+                echo "$workspace"
+                return
+            fi
+        fi
+    fi
+
+    aerospace list-workspaces --focused
+}
+
+refresh_bar() {
+    if [[ -z "${WS_ALERT_SKIP_REFRESH:-}" ]]; then
+        sketchybar --trigger aerospace_workspace_change 2>/dev/null || true
+    fi
+}
+
+[[ $# -ge 1 ]] || usage
+
+case "$1" in
+    on)
+        slot="${2:-$(detect_terminal_workspace)}"
+        mkdir -p "$STATE_DIR"
+        echo "$slot" > "$ALERT_FILE"
+        refresh_bar
+        ;;
+    off)
+        rm -f "$ALERT_FILE"
+        refresh_bar
+        ;;
+    status)
+        [[ -f "$ALERT_FILE" ]]
+        ;;
+    *)
+        usage
+        ;;
+esac

@@ -22,7 +22,9 @@
       "Bash(openspec:*)",
       "Bash(bin/ws-pick:*)",
       "Bash(jj desc:*)",
-      "WebFetch(domain:docs.anthropic.com)"
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(/Users/roman/repos/workspaces/bin/ws-alert on:*)",
+      "Bash(python:*)"
     ]
   }
 }

@@ -6,13 +6,15 @@
 #   - An object with 'app' and optional fields:
 #       args: launch arguments
 #       profile-tag: iTerm2 profile tag (prompts to choose from matching profiles)
+#       chrome-profile: Chrome profile display name (resolved via Local State)
 
 mono:
   apps:
     - app: iTerm
       profile-tag: monorepo-ws
     - app: Google Chrome
-      args: ["--new-window", "https://claude.ai"]
+      args: ["--new-window", "https://newrepo.jikotech.com/Infrastructure/monorepo/"]
+      chrome-profile: Jiko
 
 backend:
   apps:

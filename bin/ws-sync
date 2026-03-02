@@ -10,7 +10,9 @@ NAME_STORE="$HOME/.local/state/workspaces/names"
 
 COLOR_FOCUSED="0xffe0af68"
 COLOR_OCCUPIED="0xffcdd6f4"
+COLOR_ALERT="0xffed8796"
 BG_FOCUSED="0x40e0af68"
+BG_ALERT="0x40ed8796"
 BG_DEFAULT="0x00000000"
 
 # Bail if aerospace is not running
@@ -24,6 +26,12 @@ if [[ -f "$NAME_STORE" ]]; then
     while IFS='=' read -r slot name; do
         [[ -n "$slot" && -n "$name" ]] && display_names["$slot"]="$name"
     done < "$NAME_STORE"
+fi
+
+STATE_DIR="${WS_ALERT_STATE_DIR:-$HOME/.local/state/workspaces}"
+alert_slot=""
+if [[ -f "$STATE_DIR/alert" ]]; then
+    alert_slot=$(cat "$STATE_DIR/alert")
 fi
 
 # Get all workspaces with focus/visibility info
@@ -61,6 +69,10 @@ while IFS= read -r line; do
     if [[ "$is_focused" == "true" ]]; then
         icon_color="$COLOR_FOCUSED"
         bg_color="$BG_FOCUSED"
+        bg_drawing="on"
+    elif [[ "$slot" == "$alert_slot" ]]; then
+        icon_color="$COLOR_ALERT"
+        bg_color="$BG_ALERT"
         bg_drawing="on"
     else
         icon_color="$COLOR_OCCUPIED"

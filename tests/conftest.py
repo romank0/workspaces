@@ -141,7 +141,8 @@ def ws_launch(aerospace, test_templates, test_name_store, unused_slots):
     before_ids = aerospace.snapshot().window_ids()
     created_window_ids = []
 
-    def run(template: str, slot: str, display_name: str | None = None, timeout: int = 30):
+    def run(template: str, slot: str, display_name: str | None = None,
+            timeout: int = 30, extra_env: dict[str, str] | None = None):
         args = [str(REPO_DIR / "bin" / "ws-launch"), template, slot]
         if display_name is not None:
             args.append(display_name)
@@ -149,6 +150,8 @@ def ws_launch(aerospace, test_templates, test_name_store, unused_slots):
         env = os.environ.copy()
         env["TEMPLATES_FILE"] = str(templates_file)
         env["NAME_STORE"] = str(test_name_store)
+        if extra_env:
+            env.update(extra_env)
 
         result = subprocess.run(
             args,

@@ -1,8 +1,15 @@
 # ABOUTME: Integration tests for workspace launching (ws-launch).
 # ABOUTME: Tests scenarios from the workspace-launching spec against real Aerospace.
 
+import json
+import os
 import subprocess
 import time
+from pathlib import Path
+
+import pytest
+
+REPO_DIR = Path(__file__).resolve().parent.parent
 
 
 class TestBasicTemplateLaunch:
@@ -205,3 +212,121 @@ class TestBareStringApp:
         snap = aerospace.snapshot()
         apps = snap.apps_on(slot)
         assert "iTerm2" in apps, f"Expected iTerm2 on workspace {slot}, got: {apps}"
+
+
+class TestChromeProfileResolution:
+    """Requirement: Chrome profile resolution from display name."""
+
+    def test_chrome_profile_resolved_from_local_state(self, tmp_path):
+        """Scenario: Resolve display name to directory name.
+
+        GIVEN a Chrome Local State with profile "Work" in directory "Profile 1"
+        WHEN resolve-chrome-profile is called with "Work"
+        THEN it outputs "Profile 1"
+        """
+        local_state = tmp_path / "Local State"
+        local_state.write_text(json.dumps({
+            "profile": {"info_cache": {
+                "Default": {"name": "Person 1"},
+                "Profile 1": {"name": "Work"},
+            }}
+        }))
+
+        result = subprocess.run(
+            [str(REPO_DIR / "bin" / "ws-launch"), "--resolve-chrome-profile", "Work"],
+            capture_output=True, text=True, timeout=5,
+            env={**os.environ, "CHROME_LOCAL_STATE": str(local_state)},
+        )
+        assert result.returncode == 0, f"resolve failed: {result.stderr}"
+        assert result.stdout.strip() == "Profile 1"
+
+    def test_list_chrome_profiles(self, tmp_path):
+        """Scenario: List available Chrome profiles.
+
+        GIVEN a Chrome Local State with profiles "Person 1" and "Work"
+        WHEN --list-chrome-profiles is called
+        THEN stdout lists each profile display name, one per line
+        """
+        local_state = tmp_path / "Local State"
+        local_state.write_text(json.dumps({
+            "profile": {"info_cache": {
+                "Default": {"name": "Person 1"},
+                "Profile 1": {"name": "Work"},
+            }}
+        }))
+
+        result = subprocess.run(
+            [str(REPO_DIR / "bin" / "ws-launch"), "--list-chrome-profiles"],
+            capture_output=True, text=True, timeout=5,
+            env={**os.environ, "CHROME_LOCAL_STATE": str(local_state)},
+        )
+        assert result.returncode == 0, f"list failed: {result.stderr}"
+        lines = result.stdout.strip().splitlines()
+        assert "Person 1" in lines
+        assert "Work" in lines
+
+    def test_chrome_profile_not_found_lists_available(self, tmp_path):
+        """Scenario: Unknown profile name shows available profiles.
+
+        GIVEN a Chrome Local State with profiles "Person 1" and "Work"
+        WHEN resolve-chrome-profile is called with "NonExistent"
+        THEN it exits non-zero
+        AND stderr lists the available profile names
+        """
+        local_state = tmp_path / "Local State"
+        local_state.write_text(json.dumps({
+            "profile": {"info_cache": {
+                "Default": {"name": "Person 1"},
+                "Profile 1": {"name": "Work"},
+            }}
+        }))
+
+        result = subprocess.run(
+            [str(REPO_DIR / "bin" / "ws-launch"), "--resolve-chrome-profile", "NonExistent"],
+            capture_output=True, text=True, timeout=5,
+            env={**os.environ, "CHROME_LOCAL_STATE": str(local_state)},
+        )
+        assert result.returncode != 0
+        assert "Person 1" in result.stderr
+        assert "Work" in result.stderr
+
+
+@pytest.mark.ui
+class TestChromeProfileLaunch:
+    """Requirement: Chrome profile launches with correct profile."""
+
+    def test_chrome_profile_launches_window(
+        self, aerospace, ws_launch, test_templates, unused_slots, tmp_path,
+    ):
+        """Scenario: Chrome window with profile.
+
+        GIVEN a Chrome Local State mapping "TestProfile" to "Default"
+        AND templates contains "ProfileWeb" with app Google Chrome,
+            chrome-profile "TestProfile", and args ["--new-window", "https://example.com"]
+        WHEN ws-launch ProfileWeb <slot> TestProfile runs
+        THEN a Google Chrome window is created on workspace <slot>
+        """
+        slot = unused_slots[0]
+        _, write = test_templates
+
+        local_state = tmp_path / "Local State"
+        local_state.write_text(json.dumps({
+            "profile": {"info_cache": {
+                "Default": {"name": "TestProfile"},
+            }}
+        }))
+
+        write({"ProfileWeb": {"apps": [
+            {"app": "Google Chrome", "chrome-profile": "TestProfile",
+             "args": ["--new-window", "https://example.com"]},
+        ]}})
+
+        result = ws_launch("ProfileWeb", slot, "TestProfile",
+                           extra_env={"CHROME_LOCAL_STATE": str(local_state)})
+        assert result.returncode == 0, f"ws-launch failed: {result.stderr}"
+
+        time.sleep(2)
+
+        snap = aerospace.snapshot()
+        chrome_on_slot = [w for w in snap.windows_on(slot) if w.app_name == "Google Chrome"]
+        assert len(chrome_on_slot) > 0, f"Expected Chrome on workspace {slot}"

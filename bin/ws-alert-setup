@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# ABOUTME: Configures Claude Code hooks for workspace alert notifications.
+# ABOUTME: Adds Stop and UserPromptSubmit hooks that trigger ws-alert on/off.
+
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+WS_ALERT="$REPO_DIR/bin/ws-alert"
+
+usage() {
+    echo "Usage: ws-alert-setup --global [--remove]"
+    echo "       ws-alert-setup --local  [--remove]"
+    echo ""
+    echo "Configures Claude Code hooks for workspace alerts."
+    echo "  --global   Modify ~/.claude/settings.json"
+    echo "  --local    Modify .claude/settings.json"
+    echo "  --remove   Remove ws-alert hooks"
+    exit 1
+}
+
+scope=""
+remove=false
+
+for arg in "$@"; do
+    case "$arg" in
+        --global) scope="global" ;;
+        --local)  scope="local" ;;
+        --remove) remove=true ;;
+        *)        usage ;;
+    esac
+done
+
+[[ -n "$scope" ]] || usage
+
+if [[ -n "${WS_ALERT_SETTINGS_FILE:-}" ]]; then
+    settings_file="$WS_ALERT_SETTINGS_FILE"
+elif [[ "$scope" == "global" ]]; then
+    settings_file="$HOME/.claude/settings.json"
+else
+    settings_file=".claude/settings.json"
+fi
+
+# Ensure file exists with valid JSON
+if [[ ! -f "$settings_file" ]]; then
+    mkdir -p "$(dirname "$settings_file")"
+    echo '{}' > "$settings_file"
+fi
+
+if [[ "$remove" == "true" ]]; then
+    jq --arg alert "$WS_ALERT" '
+        .hooks // {} |
+        to_entries |
+        map(
+            .value |= map(
+                select(.hooks | all(.command | contains("ws-alert") | not))
+            )
+        ) |
+        map(select(.value | length > 0)) |
+        from_entries |
+        . as $hooks |
+        (input | .hooks = $hooks)
+    ' <(jq '.hooks // {}' "$settings_file") "$settings_file" > "${settings_file}.tmp"
+    mv "${settings_file}.tmp" "$settings_file"
+else
+    jq --arg alert_on "$WS_ALERT on" --arg alert_off "$WS_ALERT off" '
+        # Check if ws-alert hook already exists in a given event
+        def has_ws_alert:
+            any(.[]; .hooks | any(.command | contains("ws-alert")));
+
+        .hooks //= {} |
+        .hooks.Stop //= [] |
+        .hooks.UserPromptSubmit //= [] |
+
+        (if (.hooks.Stop | has_ws_alert) then . else
+            .hooks.Stop += [{"matcher": "", "hooks": [{"type": "command", "command": $alert_on}]}]
+        end) |
+
+        (if (.hooks.UserPromptSubmit | has_ws_alert) then . else
+            .hooks.UserPromptSubmit += [{"matcher": "", "hooks": [{"type": "command", "command": $alert_off}]}]
+        end)
+    ' "$settings_file" > "${settings_file}.tmp"
+    mv "${settings_file}.tmp" "$settings_file"
+fi
