@@ -62,7 +62,10 @@ if [[ "$remove" == "true" ]]; then
     ' <(jq '.hooks // {}' "$settings_file") "$settings_file" > "${settings_file}.tmp"
     mv "${settings_file}.tmp" "$settings_file"
 else
-    jq --arg alert_on "$WS_ALERT on" --arg alert_off "$WS_ALERT off" '
+    jq --arg alert_on "$WS_ALERT on" \
+       --arg alert_off "$WS_ALERT off" \
+       --arg register "$WS_ALERT register" \
+       --arg unregister "$WS_ALERT unregister" '
         # Check if ws-alert hook already exists in a given event
         def has_ws_alert:
             any(.[]; .hooks | any(.command | contains("ws-alert")));
@@ -70,6 +73,8 @@ else
         .hooks //= {} |
         .hooks.Stop //= [] |
         .hooks.UserPromptSubmit //= [] |
+        .hooks.SessionStart //= [] |
+        .hooks.SessionEnd //= [] |
 
         (if (.hooks.Stop | has_ws_alert) then . else
             .hooks.Stop += [{"matcher": "", "hooks": [{"type": "command", "command": $alert_on}]}]
@@ -77,6 +82,14 @@ else
 
         (if (.hooks.UserPromptSubmit | has_ws_alert) then . else
             .hooks.UserPromptSubmit += [{"matcher": "", "hooks": [{"type": "command", "command": $alert_off}]}]
+        end) |
+
+        (if (.hooks.SessionStart | has_ws_alert) then . else
+            .hooks.SessionStart += [{"matcher": "", "hooks": [{"type": "command", "command": $register}]}]
+        end) |
+
+        (if (.hooks.SessionEnd | has_ws_alert) then . else
+            .hooks.SessionEnd += [{"matcher": "", "hooks": [{"type": "command", "command": $unregister}]}]
         end)
     ' "$settings_file" > "${settings_file}.tmp"
     mv "${settings_file}.tmp" "$settings_file"

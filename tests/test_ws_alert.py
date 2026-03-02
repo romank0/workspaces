@@ -111,3 +111,45 @@ def test_alert_on_idempotent(state_dir):
     run_ws_alert("on", "T", state_dir=state_dir)
     run_ws_alert("on", "T", state_dir=state_dir)
     assert alerted_slots(state_dir) == {"T"}
+
+
+def test_register_saves_workspace(state_dir):
+    """register saves workspace for a session key."""
+    run_ws_alert("register", "T", state_dir=state_dir,
+                 env_extras={"WS_ALERT_SESSION_KEY": "test-session-1"})
+    session_file = state_dir / "sessions" / "test-session-1"
+    assert session_file.exists()
+    assert session_file.read_text().strip() == "T"
+
+
+def test_on_uses_registered_workspace(state_dir):
+    """on without slot uses the workspace saved by register."""
+    run_ws_alert("register", "W", state_dir=state_dir,
+                 env_extras={"WS_ALERT_SESSION_KEY": "test-session-2"})
+    run_ws_alert("on", state_dir=state_dir,
+                 env_extras={"WS_ALERT_SESSION_KEY": "test-session-2"})
+    assert alerted_slots(state_dir) == {"W"}
+
+
+def test_off_uses_registered_workspace(state_dir):
+    """off without slot uses the workspace saved by register."""
+    run_ws_alert("register", "W", state_dir=state_dir,
+                 env_extras={"WS_ALERT_SESSION_KEY": "test-session-3"})
+    run_ws_alert("on", "W", state_dir=state_dir)
+    run_ws_alert("off", state_dir=state_dir,
+                 env_extras={"WS_ALERT_SESSION_KEY": "test-session-3"})
+    assert "W" not in alerted_slots(state_dir)
+
+
+def test_unregister_cleans_up(state_dir):
+    """unregister removes the session file and clears the alert."""
+    run_ws_alert("register", "W", state_dir=state_dir,
+                 env_extras={"WS_ALERT_SESSION_KEY": "test-session-4"})
+    run_ws_alert("on", state_dir=state_dir,
+                 env_extras={"WS_ALERT_SESSION_KEY": "test-session-4"})
+    assert alerted_slots(state_dir) == {"W"}
+
+    run_ws_alert("unregister", state_dir=state_dir,
+                 env_extras={"WS_ALERT_SESSION_KEY": "test-session-4"})
+    assert alerted_slots(state_dir) == set()
+    assert not (state_dir / "sessions" / "test-session-4").exists()

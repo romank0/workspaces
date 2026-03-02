@@ -6,11 +6,14 @@ set -euo pipefail
 
 STATE_DIR="${WS_ALERT_STATE_DIR:-$HOME/.local/state/workspaces}"
 ALERT_DIR="$STATE_DIR/alerts"
+SESSION_DIR="$STATE_DIR/sessions"
 
 usage() {
-    echo "Usage: ws-alert on [SLOT]   — mark slot as alerting (default: terminal's workspace)"
-    echo "       ws-alert off [SLOT]  — clear alert for slot (default: terminal's workspace)"
-    echo "       ws-alert status      — exit 0 if any alert active, 1 if not"
+    echo "Usage: ws-alert on [SLOT]        — mark slot as alerting (default: session's workspace)"
+    echo "       ws-alert off [SLOT]       — clear alert for slot (default: session's workspace)"
+    echo "       ws-alert register [SLOT]  — save workspace for this session (default: detect)"
+    echo "       ws-alert unregister       — remove session and clear its alert"
+    echo "       ws-alert status           — exit 0 if any alert active, 1 if not"
     exit 1
 }
 
@@ -51,6 +54,22 @@ detect_terminal_workspace() {
     aerospace list-workspaces --focused
 }
 
+session_key() {
+    echo "${WS_ALERT_SESSION_KEY:-${ITERM_SESSION_ID:-$$}}"
+}
+
+# Look up saved workspace for this session, fall back to detection
+session_workspace() {
+    local key
+    key=$(session_key)
+    local session_file="$SESSION_DIR/$key"
+    if [[ -f "$session_file" ]]; then
+        cat "$session_file"
+        return
+    fi
+    detect_terminal_workspace
+}
+
 refresh_bar() {
     if [[ -z "${WS_ALERT_SKIP_REFRESH:-}" ]]; then
         sketchybar --trigger aerospace_workspace_change 2>/dev/null || true
@@ -61,15 +80,29 @@ refresh_bar() {
 
 case "$1" in
     on)
-        slot="${2:-$(detect_terminal_workspace)}"
+        slot="${2:-$(session_workspace)}"
         mkdir -p "$ALERT_DIR"
         touch "$ALERT_DIR/$slot"
         refresh_bar
         ;;
     off)
-        slot="${2:-$(detect_terminal_workspace)}"
+        slot="${2:-$(session_workspace)}"
         rm -f "$ALERT_DIR/$slot"
         refresh_bar
+        ;;
+    register)
+        slot="${2:-$(detect_terminal_workspace)}"
+        mkdir -p "$SESSION_DIR"
+        echo "$slot" > "$SESSION_DIR/$(session_key)"
+        ;;
+    unregister)
+        local_key=$(session_key)
+        if [[ -f "$SESSION_DIR/$local_key" ]]; then
+            slot=$(cat "$SESSION_DIR/$local_key")
+            rm -f "$ALERT_DIR/$slot"
+            rm -f "$SESSION_DIR/$local_key"
+            refresh_bar
+        fi
         ;;
     status)
         [[ -d "$ALERT_DIR" ]] && [[ -n "$(ls -A "$ALERT_DIR" 2>/dev/null)" ]]
