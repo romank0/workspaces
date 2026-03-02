@@ -191,14 +191,13 @@ launch_app() {
             return 1
         }
     elif [[ -n "$chrome_profile_dir" ]]; then
-        local chrome_args=("--args" "--profile-directory=$chrome_profile_dir")
+        local chrome_bin="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        local chrome_args=("--profile-directory=$chrome_profile_dir")
         if [[ ${#urls[@]} -gt 0 ]]; then
             chrome_args+=("--new-window" "${urls[0]}")
         fi
-        open -a "$app_name" "${chrome_args[@]}" 2>/dev/null || {
-            warn "Failed to launch $app_name with profile '$chrome_profile_dir'"
-            return 1
-        }
+        "$chrome_bin" "${chrome_args[@]}" &>/dev/null &
+        disown
     elif [[ ${#urls[@]} -gt 0 ]]; then
         local url="${urls[0]}"
         osascript \

@@ -295,18 +295,19 @@ class TestChromeProfileResolution:
 class TestChromeProfileLaunch:
     """Requirement: Chrome profile launches with correct profile."""
 
-    def test_chrome_profile_launches_window(
+    def test_chrome_profile_creates_new_window(
         self, aerospace, ws_launch, test_templates, unused_slots, tmp_path,
     ):
-        """Scenario: Chrome window with profile.
+        """Scenario: Chrome profile creates a new window without stealing existing ones.
 
-        GIVEN a Chrome Local State mapping "TestProfile" to "Default"
-        AND templates contains "ProfileWeb" with app Google Chrome,
-            chrome-profile "TestProfile", and args ["--new-window", "https://example.com"]
-        WHEN ws-launch ProfileWeb <slot> TestProfile runs
-        THEN a Google Chrome window is created on workspace <slot>
+        GIVEN Chrome is already running with a window on workspace <slot_a>
+        AND a Chrome Local State mapping "TestProfile" to "Default"
+        WHEN ws-launch launches Chrome with chrome-profile on <slot_b>
+        THEN a NEW Chrome window is created on workspace <slot_b>
+        AND the original Chrome window remains on workspace <slot_a>
         """
-        slot = unused_slots[0]
+        slot_a = unused_slots[0]
+        slot_b = unused_slots[1]
         _, write = test_templates
 
         local_state = tmp_path / "Local State"
@@ -316,17 +317,39 @@ class TestChromeProfileLaunch:
             }}
         }))
 
+        # First: launch a plain Chrome window on slot_a
+        write({"Setup": {"apps": [
+            {"app": "Google Chrome", "args": ["--new-window", "https://example.com"]},
+        ]}})
+        result = ws_launch("Setup", slot_a, "SetupWs")
+        assert result.returncode == 0, f"Setup launch failed: {result.stderr}"
+        time.sleep(2)
+
+        snap_before = aerospace.snapshot()
+        chrome_on_a = [w for w in snap_before.windows_on(slot_a) if w.app_name == "Google Chrome"]
+        assert len(chrome_on_a) > 0, f"Expected Chrome on {slot_a} after setup"
+        original_id = chrome_on_a[0].window_id
+
+        # Now: launch Chrome with chrome-profile on slot_b
         write({"ProfileWeb": {"apps": [
             {"app": "Google Chrome", "chrome-profile": "TestProfile",
              "args": ["--new-window", "https://example.com"]},
         ]}})
-
-        result = ws_launch("ProfileWeb", slot, "TestProfile",
+        result = ws_launch("ProfileWeb", slot_b, "TestProfile",
                            extra_env={"CHROME_LOCAL_STATE": str(local_state)})
         assert result.returncode == 0, f"ws-launch failed: {result.stderr}"
-
         time.sleep(2)
 
-        snap = aerospace.snapshot()
-        chrome_on_slot = [w for w in snap.windows_on(slot) if w.app_name == "Google Chrome"]
-        assert len(chrome_on_slot) > 0, f"Expected Chrome on workspace {slot}"
+        snap_after = aerospace.snapshot()
+
+        # Original window must still be on slot_a
+        ids_on_a = {w.window_id for w in snap_after.windows_on(slot_a) if w.app_name == "Google Chrome"}
+        assert original_id in ids_on_a, (
+            f"Original Chrome window {original_id} was stolen from {slot_a}. "
+            f"Chrome windows on {slot_a}: {ids_on_a}"
+        )
+
+        # A new Chrome window must exist on slot_b
+        ids_on_b = {w.window_id for w in snap_after.windows_on(slot_b) if w.app_name == "Google Chrome"}
+        assert len(ids_on_b) > 0, f"No Chrome window created on {slot_b}"
+        assert original_id not in ids_on_b
