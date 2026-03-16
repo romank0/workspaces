@@ -16,6 +16,11 @@ mono:
       args: ["--new-window", "https://newrepo.jikotech.com/Infrastructure/monorepo/"]
       chrome-profile: Jiko
 
+iterm:
+  apps:
+    - app: iTerm
+      profile-tag: monorepo-ws
+
 backend:
   apps:
     - app: iTerm
