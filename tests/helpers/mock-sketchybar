@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# ABOUTME: Test helper that captures sketchybar --set calls.
+# ABOUTME: Appends all arguments to MOCK_SKETCHYBAR_LOG file.
+
+echo "$@" >> "${MOCK_SKETCHYBAR_LOG:-/dev/null}"

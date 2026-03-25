@@ -2,7 +2,7 @@
 # ABOUTME: Displays VPN connection status from HarmonySASE log.
 # ABOUTME: Shows VPN[NetworkName] when connected, VPN[Disconnected] greyed out when not.
 
-LOG="$HOME/Library/Logs/HarmonySASE.log"
+LOG="${LOG:-$HOME/Library/Logs/HarmonySASE.log}"
 COLOR_RED="0xffff4444"
 COLOR_GREEN="0xff44ff44"
 COLOR_GREY="0xff888888"

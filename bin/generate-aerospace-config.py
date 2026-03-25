@@ -61,6 +61,18 @@ def apply_modifications(config):
     picker = str(REPO_DIR / "bin" / "ws-pick")
     config["mode"]["main"]["binding"]["alt-enter"] = f"exec-and-forget {picker}"
 
+    # Passthrough mode: disables all Aerospace bindings for typing special characters
+    state_file = str(Path.home() / ".local/state/workspaces/aerospace_mode")
+    config["mode"]["main"]["binding"]["alt-shift-backtick"] = [
+        f"exec-and-forget echo passthrough > {state_file}",
+        "mode passthrough",
+    ]
+    config["mode"]["passthrough"] = {"binding": {"alt-shift-backtick": [
+        f"exec-and-forget echo main > {state_file}",
+        "mode main",
+    ]}}
+    config.pop("on-mode-changed", None)
+
     return config
 
 
