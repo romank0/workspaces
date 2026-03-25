@@ -19,7 +19,8 @@ if [[ "$last_line" == *"Connected to"* ]]; then
     else
         color="$COLOR_GREEN"
     fi
-    sketchybar --set "$NAME" label="$network" label.color="$color"
 else
-    sketchybar --set "$NAME" label="Disconnected" label.color="$COLOR_GREY"
+    color="$COLOR_GREY"
 fi
+
+sketchybar --set "$NAME" icon.color="$color" label.drawing=off
