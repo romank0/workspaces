@@ -36,7 +36,10 @@ def apply_modifications(config):
         ' PREV=$AEROSPACE_PREV_WORKSPACE'
     ]
 
-    config["gaps"]["outer"]["top"] = 36
+    config["gaps"]["outer"]["top"] = [
+        {"monitor": {"main": 36}},
+        0,
+    ]
     config["accordion-padding"] = 0
 
     config["persistent-workspaces"] = ["1", "2"]

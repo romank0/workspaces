@@ -24,7 +24,8 @@
       "Bash(jj desc:*)",
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(/Users/roman/repos/workspaces/bin/ws-alert on:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(/Users/roman/repos/workspaces/.venv/bin/python3 /Users/roman/repos/workspaces/bin/generate-aerospace-config.py)"
     ]
   }
 }
