@@ -40,12 +40,17 @@ sketchybar --add item ws_trigger left \
            --set ws_trigger drawing=off script="$PLUGIN_DIR/workspaces.sh" \
            --subscribe ws_trigger aerospace_workspace_change
 
-# --- Right side: clock, volume, battery, vpn, slack, mail ---
+# --- Right side: clock, volume, keyboard, battery, vpn, slack, mail ---
 sketchybar --add item clock right \
            --set clock update_freq=10 icon= label.font="SF Pro:Semibold:13.0" script="$PLUGIN_DIR/clock.sh" \
            --add item volume right \
            --set volume update_freq=5 label.font="SF Pro:Semibold:13.0" script="$PLUGIN_DIR/volume.sh" \
            --subscribe volume volume_change \
+           --add item keyboard right \
+           --set keyboard update_freq=2 icon.drawing=off label.font="SF Pro:Semibold:13.0" \
+                     background.drawing=on background.color=0xff2d333b background.corner_radius=4 \
+                     background.height=20 background.padding_left=4 background.padding_right=4 \
+                     script="$PLUGIN_DIR/keyboard.sh" \
            --add item battery right \
            --set battery update_freq=120 label.font="SF Pro:Semibold:13.0" script="$PLUGIN_DIR/battery.sh" \
            --subscribe battery system_woke power_source_change \
