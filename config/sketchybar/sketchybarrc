@@ -40,7 +40,7 @@ sketchybar --add item ws_trigger left \
            --set ws_trigger drawing=off script="$PLUGIN_DIR/workspaces.sh" \
            --subscribe ws_trigger aerospace_workspace_change
 
-# --- Right side: clock, volume, battery, vpn, slack ---
+# --- Right side: clock, volume, battery, vpn, slack, mail ---
 sketchybar --add item clock right \
            --set clock update_freq=10 icon= script="$PLUGIN_DIR/clock.sh" \
            --add item volume right \
@@ -49,14 +49,15 @@ sketchybar --add item clock right \
            --add item battery right \
            --set battery update_freq=120 script="$PLUGIN_DIR/battery.sh" \
            --subscribe battery system_woke power_source_change \
-           --add item vpn_close right \
-           --set vpn_close icon="]" padding_left=0 icon.padding_left=0 icon.padding_right=4 label.drawing=off \
            --add item vpn right \
-           --set vpn update_freq=5 icon="VPN[" icon.padding_right=0 label.padding_left=0 label.padding_right=0 padding_right=0 \
+           --set vpn update_freq=5 icon="󰦝" label.padding_left=2 \
                      script="$PLUGIN_DIR/vpn.sh" \
            --add item slack right \
            --set slack update_freq=5 icon="󰒱" label.padding_left=2 \
-                     script="$PLUGIN_DIR/slack.sh"
+                     script="$PLUGIN_DIR/slack.sh" \
+           --add item mail right \
+           --set mail update_freq=5 icon="󰇮" label.padding_left=2 \
+                     script="$PLUGIN_DIR/mail.sh"
 
 # --- Initial workspace sync ---
 "$REPO_DIR/bin/ws-sync"
