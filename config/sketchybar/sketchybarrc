@@ -13,7 +13,7 @@ sketchybar --remove '/.*/' 2>/dev/null || true
 # --- Bar appearance ---
 sketchybar --bar \
     position=top \
-    height=40 \
+    height=32 \
     blur_radius=30 \
     color=0x40000000
 
@@ -21,7 +21,7 @@ sketchybar --bar \
 default=(
     padding_left=5
     padding_right=5
-    icon.font="Hack Nerd Font:Bold:17.0"
+    icon.font="Hack Nerd Font:Bold:14.0"
     label.font="Hack Nerd Font:Bold:14.0"
     icon.color=0xffffffff
     label.color=0xffffffff

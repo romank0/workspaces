@@ -37,7 +37,7 @@ def apply_modifications(config):
     ]
 
     config["gaps"]["outer"]["top"] = [
-        {"monitor": {"main": 36}},
+        {"monitor": {"main": 28}},
         0,
     ]
     config["accordion-padding"] = 0
