@@ -25,6 +25,7 @@ def load_default_config():
 
 def apply_modifications(config):
     config["default-root-container-layout"] = "accordion"
+    config["default-root-container-orientation"] = "vertical"
 
     ws_sync = str(REPO_DIR / "bin" / "ws-sync")
     config["after-startup-command"] = [f"exec-and-forget {ws_sync}"]
@@ -54,9 +55,11 @@ def apply_modifications(config):
         "run": "layout floating",
     })
 
-    # Accordion cycling: override default up/down to left/right
-    config["mode"]["main"]["binding"]["alt-j"] = "focus left --boundaries-action wrap-around-the-workspace"
-    config["mode"]["main"]["binding"]["alt-k"] = "focus right --boundaries-action wrap-around-the-workspace"
+    # Vim-style focus with wrapping in all directions
+    config["mode"]["main"]["binding"]["alt-h"] = "focus left --boundaries-action wrap-around-the-workspace"
+    config["mode"]["main"]["binding"]["alt-j"] = "focus down --boundaries-action wrap-around-the-workspace"
+    config["mode"]["main"]["binding"]["alt-k"] = "focus up --boundaries-action wrap-around-the-workspace"
+    config["mode"]["main"]["binding"]["alt-l"] = "focus right --boundaries-action wrap-around-the-workspace"
 
     picker = str(REPO_DIR / "bin" / "ws-pick")
     config["mode"]["main"]["binding"]["alt-enter"] = f"exec-and-forget {picker}"
