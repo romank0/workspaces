@@ -25,14 +25,11 @@ def load_default_config():
 
 
 def get_monitor_count():
-    try:
-        result = subprocess.run(
-            ["aerospace", "list-monitors", "--count"],
-            capture_output=True, text=True, timeout=5,
-        )
-        return int(result.stdout.strip())
-    except Exception:
-        return 1
+    result = subprocess.run(
+        ["aerospace", "list-monitors", "--count"],
+        capture_output=True, text=True, timeout=5, check=True,
+    )
+    return int(result.stdout.strip())
 
 
 def apply_modifications(config):
@@ -42,11 +39,7 @@ def apply_modifications(config):
     config["default-root-container-orientation"] = "vertical"
 
     ws_sync = str(REPO_DIR / "bin" / "ws-sync")
-    watch_displays = str(REPO_DIR / "bin" / "watch-displays")
-    config["after-startup-command"] = [
-        f"exec-and-forget {ws_sync}",
-        f"exec-and-forget {watch_displays}",
-    ]
+    config["after-startup-command"] = [f"exec-and-forget {ws_sync}"]
 
     config["exec-on-workspace-change"] = [
         '/bin/bash', '-c',

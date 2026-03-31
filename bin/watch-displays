@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 # ABOUTME: Watches for display count changes and regenerates Aerospace config.
-# ABOUTME: Polls every 3 seconds, only acts when monitor count changes.
+# ABOUTME: Polls every 3 seconds, regenerates and reloads when config content changes.
 
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 VENV_PYTHON="$REPO_DIR/.venv/bin/python3"
+CONFIG="$HOME/.config/aerospace/aerospace.toml"
 
-last_count=""
+last_hash=$(md5 -q "$CONFIG" 2>/dev/null || echo "")
 
 while true; do
-    count=$(aerospace list-monitors --count 2>/dev/null || echo "0")
-
-    if [[ "$count" != "$last_count" && -n "$last_count" ]]; then
-        "$VENV_PYTHON" "$REPO_DIR/bin/generate-aerospace-config.py"
-        aerospace reload-config
+    if "$VENV_PYTHON" "$REPO_DIR/bin/generate-aerospace-config.py"; then
+        new_hash=$(md5 -q "$CONFIG" 2>/dev/null || echo "")
+        if [[ "$new_hash" != "$last_hash" ]]; then
+            aerospace reload-config
+            last_hash="$new_hash"
+        fi
     fi
-
-    last_count="$count"
     sleep 3
 done
