@@ -2,6 +2,7 @@
 # ABOUTME: Reads Aerospace default config and applies workspace-centric modifications.
 # ABOUTME: Outputs modified config to ~/.config/aerospace/aerospace.toml.
 
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -23,12 +24,29 @@ def load_default_config():
         return tomllib.load(f)
 
 
+def get_monitor_count():
+    try:
+        result = subprocess.run(
+            ["aerospace", "list-monitors", "--count"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return int(result.stdout.strip())
+    except Exception:
+        return 1
+
+
 def apply_modifications(config):
+    monitor_count = get_monitor_count()
+
     config["default-root-container-layout"] = "accordion"
     config["default-root-container-orientation"] = "vertical"
 
     ws_sync = str(REPO_DIR / "bin" / "ws-sync")
-    config["after-startup-command"] = [f"exec-and-forget {ws_sync}"]
+    watch_displays = str(REPO_DIR / "bin" / "watch-displays")
+    config["after-startup-command"] = [
+        f"exec-and-forget {ws_sync}",
+        f"exec-and-forget {watch_displays}",
+    ]
 
     config["exec-on-workspace-change"] = [
         '/bin/bash', '-c',
@@ -37,10 +55,13 @@ def apply_modifications(config):
         ' PREV=$AEROSPACE_PREV_WORKSPACE'
     ]
 
-    config["gaps"]["outer"]["top"] = [
-        {"monitor": {"main": 28}},
-        0,
-    ]
+    if monitor_count > 1:
+        config["gaps"]["outer"]["top"] = [
+            {"monitor": {"main": 28}},
+            0,
+        ]
+    else:
+        config["gaps"]["outer"]["top"] = 0
     config["accordion-padding"] = 0
 
     config["persistent-workspaces"] = ["1", "2"]
