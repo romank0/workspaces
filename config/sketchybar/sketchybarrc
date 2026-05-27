@@ -35,6 +35,7 @@ sketchybar --default "${default[@]}"
 # --- Aerospace workspace change event ---
 sketchybar --add event aerospace_workspace_change
 sketchybar --add event aerospace_mode_change
+sketchybar --add event cast_mode_change
 
 # --- Single trigger item that refreshes workspaces on change ---
 sketchybar --add item ws_trigger left \
@@ -62,6 +63,10 @@ sketchybar --add item clock right \
            --add item battery right \
            --set battery update_freq=120 label.font="SF Pro:Semibold:13.0" script="$PLUGIN_DIR/battery.sh" \
            --subscribe battery system_woke power_source_change \
+           --add item cast right \
+           --set cast icon="󰄝" label.drawing=off drawing=off \
+                     script="$PLUGIN_DIR/cast.sh" \
+           --subscribe cast cast_mode_change \
            --add item vpn right \
            --set vpn update_freq=5 icon="󰦝" label.padding_left=2 \
                      script="$PLUGIN_DIR/vpn.sh" \

@@ -2,6 +2,7 @@
 # ABOUTME: Reads Aerospace default config and applies workspace-centric modifications.
 # ABOUTME: Outputs modified config to ~/.config/aerospace/aerospace.toml.
 
+import os
 import subprocess
 import sys
 import tomllib
@@ -14,6 +15,25 @@ AEROSPACE_CONFIG_DIR = Path.home() / ".config" / "aerospace"
 AEROSPACE_CONFIG = AEROSPACE_CONFIG_DIR / "aerospace.toml"
 
 REPO_DIR = Path(__file__).resolve().parent.parent
+
+STATE_DIR = Path.home() / ".local" / "state" / "workspaces"
+# Top gap that clears the camera isle (notch) on the built-in retina display
+# while casting, when macOS no longer reserves the notch area. Tune as needed.
+NOTCH_GAP = 32
+
+
+def cast_mode_state_path():
+    return Path(os.environ.get("CAST_MODE_STATE", str(STATE_DIR / "cast_mode")))
+
+
+def read_cast_mode():
+    return cast_mode_state_path().exists()
+
+
+def compute_top_gap(monitor_count, cast_mode):
+    if monitor_count > 1:
+        return [{"monitor": {"main": 28}}, 0]
+    return NOTCH_GAP if cast_mode else 0
 
 
 def load_default_config():
@@ -48,13 +68,7 @@ def apply_modifications(config):
         ' PREV=$AEROSPACE_PREV_WORKSPACE'
     ]
 
-    if monitor_count > 1:
-        config["gaps"]["outer"]["top"] = [
-            {"monitor": {"main": 28}},
-            0,
-        ]
-    else:
-        config["gaps"]["outer"]["top"] = 0
+    config["gaps"]["outer"]["top"] = compute_top_gap(monitor_count, read_cast_mode())
     config["accordion-padding"] = 0
 
     config["persistent-workspaces"] = ["1", "2"]
@@ -77,6 +91,10 @@ def apply_modifications(config):
 
     picker = str(REPO_DIR / "bin" / "ws-pick")
     config["mode"]["main"]["binding"]["alt-enter"] = f"exec-and-forget {picker}"
+
+    # Cast mode: toggles a notch-clearing top gap for screen mirroring
+    ws_cast = str(REPO_DIR / "bin" / "ws-cast")
+    config["mode"]["main"]["binding"]["alt-shift-c"] = f"exec-and-forget {ws_cast} toggle"
 
     # Passthrough mode: disables all Aerospace bindings for typing special characters
     state_file = str(Path.home() / ".local/state/workspaces/aerospace_mode")

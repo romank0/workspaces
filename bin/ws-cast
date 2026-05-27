@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# ABOUTME: Toggles cast mode, which grows the retina top gap to clear the notch.
+# ABOUTME: Regenerates the Aerospace config and reloads it when the state changes.
+
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+STATE_DIR="${WS_CAST_STATE_DIR:-$HOME/.local/state/workspaces}"
+STATE_FILE="$STATE_DIR/cast_mode"
+VENV_PYTHON="$REPO_DIR/.venv/bin/python3"
+
+usage() {
+    echo "Usage: ws-cast on       — enable cast mode (notch-clearing top gap)"
+    echo "       ws-cast off      — disable cast mode"
+    echo "       ws-cast toggle   — flip cast mode"
+    echo "       ws-cast status   — exit 0 if cast mode is on, 1 if not"
+    exit 1
+}
+
+is_on() {
+    [[ -f "$STATE_FILE" ]]
+}
+
+apply() {
+    if [[ -n "${WS_CAST_SKIP_REFRESH:-}" ]]; then
+        return
+    fi
+    "$VENV_PYTHON" "$REPO_DIR/bin/generate-aerospace-config.py"
+    aerospace reload-config
+    sketchybar --trigger cast_mode_change 2>/dev/null || true
+}
+
+[[ $# -ge 1 ]] || usage
+
+case "$1" in
+    on)
+        mkdir -p "$STATE_DIR"
+        touch "$STATE_FILE"
+        apply
+        ;;
+    off)
+        rm -f "$STATE_FILE"
+        apply
+        ;;
+    toggle)
+        if is_on; then
+            rm -f "$STATE_FILE"
+        else
+            mkdir -p "$STATE_DIR"
+            touch "$STATE_FILE"
+        fi
+        apply
+        ;;
+    status)
+        is_on
+        ;;
+    *)
+        usage
+        ;;
+esac
