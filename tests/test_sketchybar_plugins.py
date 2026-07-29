@@ -48,40 +48,6 @@ class TestKeyboardPlugin:
         assert result.returncode == 0
         assert "--set test_item label=" in output
 
-    def test_passthrough_mode_appends_native_char_pl(self, plugin_env, tmp_path):
-        mode_file = tmp_path / "aerospace_mode"
-        mode_file.write_text("passthrough")
-        result, output = plugin_env(
-            "keyboard.sh",
-            env_extras={"STATE_FILE": str(mode_file)},
-        )
-        # This test will only show the passthrough suffix if the current layout
-        # is Polish or Ukrainian. We verify the mechanism works by checking
-        # the state file is read.
-        assert result.returncode == 0
-
-    def test_main_mode_shows_plain_label(self, plugin_env, tmp_path):
-        mode_file = tmp_path / "aerospace_mode"
-        mode_file.write_text("main")
-        result, output = plugin_env("keyboard.sh")
-        assert result.returncode == 0
-        # Should not contain native char suffixes
-        assert "PLą" not in output
-        assert "UAы" not in output
-
-    def test_mode_change_event_writes_state(self, plugin_env, tmp_path):
-        mode_file = tmp_path / "aerospace_mode"
-        result, output = plugin_env(
-            "keyboard.sh",
-            env_extras={
-                "SENDER": "aerospace_mode_change",
-                "MODE": "passthrough",
-                "STATE_FILE": str(mode_file),
-            },
-        )
-        assert result.returncode == 0
-        assert mode_file.read_text().strip() == "passthrough"
-
 
 # --- vpn.sh tests ---
 

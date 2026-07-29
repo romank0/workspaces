@@ -34,7 +34,6 @@ sketchybar --default "${default[@]}"
 
 # --- Aerospace workspace change event ---
 sketchybar --add event aerospace_workspace_change
-sketchybar --add event aerospace_mode_change
 sketchybar --add event cast_mode_change
 
 # --- Single trigger item that refreshes workspaces on change ---
@@ -59,7 +58,6 @@ sketchybar --add item clock right \
                      background.drawing=on background.color=0xff2d333b background.corner_radius=4 \
                      background.height=20 background.padding_left=4 background.padding_right=4 \
                      script="$PLUGIN_DIR/keyboard.sh" \
-           --subscribe keyboard aerospace_mode_change \
            --add item battery right \
            --set battery update_freq=120 label.font="SF Pro:Semibold:13.0" script="$PLUGIN_DIR/battery.sh" \
            --subscribe battery system_woke power_source_change \

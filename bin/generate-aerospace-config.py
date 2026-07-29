@@ -106,18 +106,6 @@ def apply_modifications(config):
     ws_cast = str(REPO_DIR / "bin" / "ws-cast")
     config["mode"]["main"]["binding"]["alt-shift-c"] = f"exec-and-forget {ws_cast} toggle"
 
-    # Passthrough mode: disables all Aerospace bindings for typing special characters
-    state_file = str(Path.home() / ".local/state/workspaces/aerospace_mode")
-    config["mode"]["main"]["binding"]["alt-shift-backtick"] = [
-        f"exec-and-forget echo passthrough > {state_file}",
-        "mode passthrough",
-    ]
-    config["mode"]["passthrough"] = {"binding": {"alt-shift-backtick": [
-        f"exec-and-forget echo main > {state_file}",
-        "mode main",
-    ]}}
-    config.pop("on-mode-changed", None)
-
     for mode in config["mode"].values():
         if "binding" in mode:
             mode["binding"] = remap_binding_prefix(mode["binding"])
