@@ -4,30 +4,32 @@ Workspace-centric macOS environment using Aerospace, SketchyBar, and iTerm2. Tre
 
 ## How It Works
 
-**Aerospace** manages windows in accordion (stacked) layout — one app visible at a time per workspace, switched with `alt-j`/`alt-k`.
+**Aerospace** manages windows in accordion (stacked) layout — one app visible at a time per workspace, switched with `rcmd-j`/`rcmd-k`.
 
 **SketchyBar** displays active workspaces in a transparent top bar. Only workspaces with windows are shown. Each workspace shows its slot (1-9, A-Z) and display name.
 
 **Templates** define which apps to launch for a given project type. Multiple workspaces can be created from the same template.
 
-**Slots** are the fixed Aerospace workspace identifiers (1-9, A-Z). Each slot has a permanent keybinding (`alt-1` through `alt-9`, `alt-a` through `alt-z`). Workspace 1 is persistent and always available as the default workspace.
+**Slots** are the fixed Aerospace workspace identifiers (1-9, A-Z). Each slot has a permanent keybinding (`rcmd-1` through `rcmd-9`, `rcmd-a` through `rcmd-z`). Workspace 1 is persistent and always available as the default workspace.
 
 ## Keybindings
 
+All Aerospace shortcuts use a hyper prefix — `alt-cmd-ctrl-` (⌥⌃⌘) in the generated config. Holding three modifiers is awkward, so a Karabiner-Elements rule remaps **Right Command** to that prefix. With the rule installed, press **Right Command** (written `rcmd-` below) plus the key. See [Karabiner-Elements setup](#karabiner-elements) for the rule.
+
 | Key | Action |
 |-----|--------|
-| `alt-space` | Open workspace picker (switch or create) |
-| `alt-1`..`alt-9` | Switch to workspace slot 1-9 |
-| `alt-a`..`alt-z` | Switch to workspace slot A-Z |
-| `alt-j` / `alt-k` | Focus next/previous window in stack |
-| `alt-h` / `alt-l` | Focus left/right |
-| `alt-shift-1`..`alt-shift-z` | Move window to workspace slot |
-| `alt-shift-tab` | Move workspace to next monitor |
-| `alt-tab` | Switch to previous workspace |
-| `alt-slash` | Switch to tiles layout |
-| `alt-comma` | Switch to accordion layout |
+| `rcmd-enter` | Open workspace picker (switch or create) |
+| `rcmd-1`..`rcmd-9` | Switch to workspace slot 1-9 |
+| `rcmd-a`..`rcmd-z` | Switch to workspace slot A-Z |
+| `rcmd-j` / `rcmd-k` | Focus next/previous window in stack |
+| `rcmd-h` / `rcmd-l` | Focus left/right |
+| `rcmd-shift-1`..`rcmd-shift-z` | Move window to workspace slot |
+| `rcmd-shift-tab` | Move workspace to next monitor |
+| `rcmd-tab` | Switch to previous workspace |
+| `rcmd-slash` | Switch to tiles layout |
+| `rcmd-comma` | Switch to accordion layout |
 
-## Workspace Picker (`alt-space`)
+## Workspace Picker (`rcmd-enter`)
 
 Opens an fzf-based menu in an iTerm2 popup window:
 
@@ -62,7 +64,7 @@ Apps can be a bare string (just the name) or an object with `app` and `args` for
 
 ### Creating a workspace
 
-Via picker: `alt-space` → select template → enter slot and name.
+Via picker: `rcmd-enter` → select template → enter slot and name.
 
 Via command line:
 
@@ -74,7 +76,7 @@ bin/ws-launch AI B my-project # Template "AI" in slot B, display name "my-projec
 ## Architecture
 
 ```
-alt-space → ws-pick-wrapper (background process)
+rcmd-enter → ws-pick-wrapper (background process)
                ├── launches iTerm2 with "Workspace Picker" profile
                ├── ws-pick shows fzf, writes selection to temp file
                └── wrapper reads result, runs aerospace workspace switch
@@ -104,8 +106,9 @@ The Aerospace config is not stored in the repo. `bin/generate-aerospace-config.p
 - Accordion as default layout
 - `exec-on-workspace-change` hook for SketchyBar
 - `after-startup-command` to run initial ws-sync
-- `persistent-workspaces = ["1"]`
-- `alt-space` keybinding for the picker
+- `persistent-workspaces = ["1", "2"]`
+- `alt-cmd-ctrl-enter` keybinding for the picker
+- Remaps every `alt-` binding to the `alt-cmd-ctrl-` hyper prefix (see [Karabiner-Elements](#karabiner-elements))
 - Top gap for SketchyBar bar
 
 This keeps the config up to date with Aerospace releases.
@@ -165,6 +168,33 @@ This will:
 8. Start or reload Aerospace and SketchyBar
 
 Safe to run multiple times.
+
+### Karabiner-Elements
+
+Aerospace shortcuts use the `alt-cmd-ctrl-` hyper prefix. Install [Karabiner-Elements](https://karabiner-elements.pqrs.org/) and add this rule under a profile's `complex_modifications.rules` (in `~/.config/karabiner/karabiner.json`) so **Right Command** produces that prefix on its own:
+
+```json
+{
+    "description": "Right Command to Cmd+Ctrl+Opt (For AeroSpace)",
+    "manipulators": [
+        {
+            "from": {
+                "key_code": "right_command",
+                "modifiers": { "optional": ["any"] }
+            },
+            "to": [
+                {
+                    "key_code": "left_command",
+                    "modifiers": ["left_control", "left_option"]
+                }
+            ],
+            "type": "basic"
+        }
+    ]
+}
+```
+
+With the rule active, hold **Right Command** in place of the `alt-cmd-ctrl-` prefix — e.g. Right Command + `j` runs `alt-cmd-ctrl-j`.
 
 ## Future Work
 

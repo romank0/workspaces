@@ -17,6 +17,9 @@ AEROSPACE_CONFIG = AEROSPACE_CONFIG_DIR / "aerospace.toml"
 REPO_DIR = Path(__file__).resolve().parent.parent
 
 STATE_DIR = Path.home() / ".local" / "state" / "workspaces"
+# Modifier prefix rewrite: every binding fires with the hyper trio held down.
+BINDING_PREFIX = "alt-"
+HYPER_PREFIX = "alt-cmd-ctrl-"
 # Top gap that clears the camera isle (notch) on the built-in retina display
 # while casting, when macOS no longer reserves the notch area. Tune as needed.
 NOTCH_GAP = 32
@@ -34,6 +37,13 @@ def compute_top_gap(monitor_count, cast_mode):
     if monitor_count > 1:
         return [{"monitor": {"main": 28}}, 0]
     return NOTCH_GAP if cast_mode else 0
+
+
+def remap_binding_prefix(bindings):
+    return {
+        (HYPER_PREFIX + key[len(BINDING_PREFIX):] if key.startswith(BINDING_PREFIX) else key): action
+        for key, action in bindings.items()
+    }
 
 
 def load_default_config():
@@ -107,6 +117,10 @@ def apply_modifications(config):
         "mode main",
     ]}}
     config.pop("on-mode-changed", None)
+
+    for mode in config["mode"].values():
+        if "binding" in mode:
+            mode["binding"] = remap_binding_prefix(mode["binding"])
 
     return config
 
