@@ -133,6 +133,43 @@ class TestVpnPlugin:
         assert result.returncode == 0
         assert "icon.color=0xff888888" in output  # grey
 
+    def test_nameless_reconnect_uses_ping_network_name(self, plugin_env, tmp_path):
+        # After a nameless reconnect, a later ping event reports the live
+        # network name and should color the indicator green (JikoStaff).
+        log = tmp_path / "vpn.log"
+        log.write_text(
+            "26-07-31 00:05:49.508 DEBUG [AGT] "
+            "StatusItemController.state:35 "
+            "- State changed from connected to disconnected\n"
+            "26-07-31 00:05:56.827 DEBUG [AGT] "
+            "MainSubController.onConnectedToVPN_handler():672 "
+            "- Connection state label updated to connected\n"
+            "26-07-31 00:16:03.200 DEBUG [AGT] "
+            "MainSubController.onVPNLatencyMeasurementResultReceived():1329 "
+            '- Ping event: BI: network|ping (implicit-), parameters: '
+            '{"gateway_location" = "New Jersey, US";latency = "105.716";'
+            '"network_name" = JikoStaff;"vpn_protocol" = 2;}\n'
+        )
+        result, output = plugin_env("vpn.sh", env_extras={"LOG": str(log)})
+        assert result.returncode == 0
+        assert "icon.color=0xff44ff44" in output  # green
+
+    def test_ping_after_disconnect_is_ignored(self, plugin_env, tmp_path):
+        # A ping event before the final disconnect must not keep it green.
+        log = tmp_path / "vpn.log"
+        log.write_text(
+            "26-07-31 00:16:03.200 DEBUG [AGT] "
+            "MainSubController.onVPNLatencyMeasurementResultReceived():1329 "
+            '- Ping event: BI: network|ping (implicit-), parameters: '
+            '{"network_name" = JikoStaff;"vpn_protocol" = 2;}\n'
+            "26-07-31 00:20:00.000 DEBUG [AGT] "
+            "StatusItemController.state:35 "
+            "- State changed from connected to disconnected\n"
+        )
+        result, output = plugin_env("vpn.sh", env_extras={"LOG": str(log)})
+        assert result.returncode == 0
+        assert "icon.color=0xff888888" in output  # grey
+
     def test_missing_log_file(self, plugin_env, tmp_path):
         result, output = plugin_env(
             "vpn.sh",
