@@ -86,6 +86,53 @@ class TestVpnPlugin:
         assert result.returncode == 0
         assert "icon.color=0xff888888" in output  # grey
 
+    def test_reconnect_after_disconnect_without_notification(self, plugin_env, tmp_path):
+        # A reconnect that only logs "updated to connected" (no "Connected to X")
+        # after an earlier disconnect must show connected, not stale grey.
+        log = tmp_path / "vpn.log"
+        log.write_text(
+            "26-07-30 13:58:31.296 DEBUG [AGT] "
+            "StatusItemController.state:35 "
+            "- State changed from connected to disconnected\n"
+            "26-07-30 19:00:23.635 DEBUG [AGT] "
+            "MainSubController.onConnectedToVPN_handler():672 "
+            "- Connection state label updated to connected\n"
+        )
+        result, output = plugin_env("vpn.sh", env_extras={"LOG": str(log)})
+        assert result.returncode == 0
+        assert "icon.color=0xffe0af68" in output  # yellow (connected, network unknown)
+
+    def test_connect_notification_then_label_update_stays_named(self, plugin_env, tmp_path):
+        # A normal connect logs "Connected to X" then "updated to connected".
+        # The trailing label-update must not downgrade the known network color.
+        log = tmp_path / "vpn.log"
+        log.write_text(
+            "26-07-30 05:16:28.471 DEBUG [AGT] "
+            "MainSubController.onConnectedToVPN_handler():635 "
+            "- Showing notification: Connected to JikoStaff\n"
+            "26-07-30 05:16:28.473 DEBUG [AGT] "
+            "MainSubController.onConnectedToVPN_handler():648 "
+            "- Connection state label updated to connected\n"
+        )
+        result, output = plugin_env("vpn.sh", env_extras={"LOG": str(log)})
+        assert result.returncode == 0
+        assert "icon.color=0xff44ff44" in output  # green
+
+    def test_disconnect_after_connect_is_grey(self, plugin_env, tmp_path):
+        # A disconnect following a named connect must clear back to grey.
+        log = tmp_path / "vpn.log"
+        log.write_text(
+            "26-07-30 07:00:28.624 DEBUG [AGT] "
+            "MainSubController.onConnectedToVPN_handler():635 "
+            "- Showing notification: Connected to JikoStaff\n"
+            "26-07-30 13:58:31.296 DEBUG [AGT] "
+            "StatusItemController.state:35 "
+            "- State changed from connected to disconnected\n"
+        )
+        result, output = plugin_env("vpn.sh", env_extras={"LOG": str(log)})
+        assert result.returncode == 0
+        assert "icon.color=0xff888888" in output  # grey
+
     def test_missing_log_file(self, plugin_env, tmp_path):
         result, output = plugin_env(
             "vpn.sh",
